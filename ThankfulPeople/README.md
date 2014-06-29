@@ -13,5 +13,5 @@ $Configuration['Plugins']['ThankfulPeople']['Disabled'] = array('comment');
 	Allow disable thank only this type of objects.
 	$Configuration['Plugins']['ThankfulPeople']['Only'] has priority.
 
-$Configuration['Plugins']['ThankfulPeople']['AllowTakeBack'] = False;
+$Configuration['Plugins']['ThankfulPeople']['AllowTakeBack'] = false;
 	Allow take back thank.

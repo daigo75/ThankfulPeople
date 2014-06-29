@@ -1,0 +1,3 @@
+*.komodotools
+/TopContributors/install/plugin.schema.php
+/Tagging/vendor
