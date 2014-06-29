@@ -13,7 +13,7 @@ $PluginInfo['ThankfulPeople'] = array(
 	'RequiredPlugins' => array(
 		'AeliaFoundationClasses' => '14.06.24.001',
 	),
-	'License' => 'X.Net License'
+	'License' => 'GPLv3'
 );
 
 // TODO: PERMISSION THANK FOR CATEGORY
