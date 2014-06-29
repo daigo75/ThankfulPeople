@@ -14,29 +14,29 @@ class ThanksLogModel extends Gdn_Model {
 		$this->FireEvent('AfterConstruct');
 	}
 	
-	public function GetCount($Where = False) {
+	public function GetCount($Where = false) {
 		$Where['bCountQuery'] = True;
 		$Result = $this->Get($Where);
 		return $Result;
 	}
 	
-	public function Get($Where = False, $Offset = False, $Limit = False) {
+	public function Get($Where = false, $Offset = false, $Limit = false) {
 		
-		$bCountQuery = GetValue('bCountQuery', $Where, False, True);
+		$bCountQuery = GetValue('bCountQuery', $Where, false, True);
 		$this->EventArguments['WhereOptions'] = $Where;
 		$this->EventArguments['bCountQuery'] = $bCountQuery;
 		
 		if ($bCountQuery) {
 			$this->SQL->Select('*', 'count', 'RowCount');
-			$Offset = $Limit = False;
+			$Offset = $Limit = false;
 		}
-		if ($CommentData = GetValue('Comments', $Where, False, True)) {
+		if ($CommentData = GetValue('Comments', $Where, false, True)) {
 			if ($CommentData instanceof Gdn_DataSet) $CommentData = ConsolidateArrayValuesByKey($CommentData->Result(), 'CommentID');
 			if (!is_array($CommentData)) trigger_error('Unexpected type: '.gettype($CommentData), E_USER_ERROR);
 			$this->SQL
 				->WhereIn('t.CommentID', $CommentData);
 		}
-		if ($WithDiscussionID = GetValue('WithDiscussionID', $Where, False, True)) {
+		if ($WithDiscussionID = GetValue('WithDiscussionID', $Where, false, True)) {
 			$this->SQL->OrWhere('t.DiscussionID', $WithDiscussionID);
 		}
 		
@@ -69,10 +69,10 @@ class ThanksLogModel extends Gdn_Model {
 		$UserID = Gdn::SQL()
 			->Select('InsertUserID')
 			->From($Table)
-			->Where($Field, (int)$ObjectID, False, False)
+			->Where($Field, (int)$ObjectID, false, false)
 			->Get()
 			->Value('InsertUserID');
-		return $UserID; // NOTE: Gdn_DataSet.Value returns NULL, but should False as FirstRow()
+		return $UserID; // NOTE: Gdn_DataSet.Value returns NULL, but should false as FirstRow()
 	}
 	
 	public static function RemoveThank($Type, $ObjectID, $SessionUserID) {
@@ -91,7 +91,7 @@ class ThanksLogModel extends Gdn_Model {
 		$Field = self::GetPrimaryKeyField($Type);
 		$SQL = Gdn::SQL();
 		$SQL
-			->History(False, True)
+			->History(false, True)
 			->Set($Field, $ObjectID)
 			->Set('UserID', $UserID)
 			->Insert('ThanksLog', array()); // BUG: https://github.com/vanillaforums/Garden/issues/566
@@ -104,7 +104,7 @@ class ThanksLogModel extends Gdn_Model {
 		if (!in_array($Value, array('-1', '+1'))) $Value = '+1';
 		Gdn::SQL()
 			->Update('User')
-			->Set('ReceivedThankCount', 'ReceivedThankCount' . $Value, False)
+			->Set('ReceivedThankCount', 'ReceivedThankCount' . $Value, false)
 			->Where('UserID', $UserID)
 			->Put();
 	}
@@ -114,12 +114,12 @@ class ThanksLogModel extends Gdn_Model {
 		$SqlCount = $SQL
 			->Select('*', 'count', 'Count')
 			->From('ThanksLog t')
-			->Where('t.UserID', 'u.UserID', False, False)
+			->Where('t.UserID', 'u.UserID', false, false)
 			->GetSelect();
 		$SQL->Reset();
 		$SQL
 			->Update('User u')
-			->Set('u.ReceivedThankCount', "($SqlCount)", False, False)
+			->Set('u.ReceivedThankCount', "($SqlCount)", false, false)
 			->Put();
 	}
 	
@@ -149,7 +149,7 @@ class ThanksLogModel extends Gdn_Model {
 		return $Result;
 	}
 	
-	public function GetReceivedThanks($Where = False, $Offset = False, $Limit = False) {
+	public function GetReceivedThanks($Where = false, $Offset = false, $Limit = false) {
 		$this->BaseQuery();
 		$this->SQL
 			->OrderBy('t.DateInserted', 'desc');
@@ -185,7 +185,7 @@ class ThanksLogModel extends Gdn_Model {
 				->Select($ExcerptTextField, 'mid(%s, 1, 255)', 'ExcerptText') // TODO: Config how many first chars get
 				->Select('DateInserted')
 				->From($Table)
-				->Where($ObjectPrimaryKey .' in ('.$ObjectIDs.')', Null, False, False)
+				->Where($ObjectPrimaryKey .' in ('.$ObjectIDs.')', Null, false, false)
 				->GetSelect();
 			//$Sql = $this->SQL->ApplyParameters($Sql); // TODO: WAITING FOR APPLYING COMMITS
 			$this->SQL->Reset();
