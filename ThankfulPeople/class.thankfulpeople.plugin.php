@@ -11,7 +11,7 @@ $PluginInfo['ThankfulPeople'] = array(
 	),
 	'RequiredTheme' => false,
 	'RequiredPlugins' => array(
-		'AeliaFoundationClasses' => '14.03.21.001',
+		'AeliaFoundationClasses' => '14.06.24.001',
 	),
 	'License' => 'X.Net License'
 );
