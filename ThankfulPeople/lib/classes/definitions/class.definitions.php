@@ -91,6 +91,11 @@ class Definitions {
 
 	// @var int The default interval to recalculate the thanks, in hours
 	const DEFAULT_RECALC_INTERVAL = 24;
+
+	const RES_OK = 0;
+	const RES_ERR_CANNOT_THANK_YOUR_OWN = '1001';
+	const RES_ERR_CANNOT_THANK_OBJECT_TYPE = '1002';
+	const RES_ERR_OBJECT_ALREADY_THANKED = '1003';
 }
 
 Definitions::Initialize();

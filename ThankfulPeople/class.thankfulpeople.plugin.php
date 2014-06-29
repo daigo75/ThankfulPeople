@@ -3,43 +3,65 @@
 $PluginInfo['ThankfulPeople'] = array(
 	'Name' => 'Thankful People',
 	'Description' => 'Remake of classic Vanilla One extension. Instead of having people post appreciation and thankyou notes they can simply click the thanks link and have their username appear under that post (MySchizoBuddy).',
-	'Version' => '2.14.2.0.18',
-	'Date' => 'Summer 2011',
-	'Author' => 'Jerl Liandri',
-	'AuthorUrl' => 'http://www.liandri-mining-corporation.com',
-	'RequiredApplications' => array('Vanilla' => '>=2.0.18'),
-	'RequiredTheme' => False,
-	'RequiredPlugins' => False,
+	'Version' => '1.0.0.140629',
+	'Author' => 'Diego Zanella (original by Jerl Liandri)',
+	'AuthorUrl' => 'http://www.aelia.co',
+	'RequiredApplications' => array(
+		'Vanilla' => '>=2.0.18'
+	),
+	'RequiredTheme' => false,
+	'RequiredPlugins' => array(
+		'AeliaFoundationClasses' => '14.03.21.001',
+	),
 	'License' => 'X.Net License'
 );
 
 // TODO: PERMISSION THANK FOR CATEGORY
 // TODO: AttachMessageThankCount
 
-class ThankfulPeoplePlugin extends Gdn_Plugin {
+use Aelia\Plugins\ThankfulPeople\Schema;
+use Aelia\Plugins\ThankfulPeople\Definitions;
 
+class ThankfulPeoplePlugin extends Gdn_Plugin {
 	protected $ThankForComment = array(); // UserIDs array
 	protected $CommentGroup = array();
 	protected $DiscussionData = array();
 	private $Session;
 
 	public function __construct() {
+		require_once(__DIR__ . '/vendor/autoload.php');
 		$this->Session = Gdn::Session();
+		$this->ThanksLogModel = new ThanksLogModel();
 	}
 
-  public function DiscussionController_AfterCommentMeta_Handler(&$Sender) {
-		$this->AttachMessageThankCount($Sender);
-	}
-
-	protected function AttachMessageThankCount($Sender) {
-		$ThankCount = mt_rand(1, 33);
-		echo '<div class="ThankCount">'.Plural($Posts, 'Thanks: %s', 'Thanks: %s'), number_format($ThankCount, 0).'</div>';
+	protected function DisallowedObjectTypes() {
+		if(empty($this->_DisallowedObjectTypes)) {
+			$this->_DisallowedObjectTypes = C('Plugins.ThankfulPeople.DisallowedObjectTypes', null);
 		}
 
+		return $this->_DisallowedObjectTypes;
+	}
+
+	protected function AllowedObjectTypes() {
+		if(empty($this->_AllowedObjectTypes)) {
+			$this->_AllowedObjectTypes = C('Plugins.ThankfulPeople.AllowedObjectTypes', null);
+		}
+
+		return $this->_AllowedObjectTypes;
+	}
+
+//  public function DiscussionController_AfterCommentMeta_Handler(&$Sender) {
+//		$this->AttachMessageThankCount($Sender);
+//	}
+//
+//	protected function AttachMessageThankCount($Sender) {
+//		$ThankCount = mt_rand(1, 33);
+//		echo '<div class="ThankCount">'.Plural($Posts, 'Thanks: %s', 'Thanks: %s'), number_format($ThankCount, 0).'</div>';
+//	}
 
 	public function PluginController_UnThankFor_Create($Sender) {
 		$SessionUserID = GetValue('UserID', Gdn::Session());
-		if ($SessionUserID > 0 && C('Plugins.ThankfulPeople.AllowTakeBack', False)) {
+		if($SessionUserID > 0 && C('Plugins.ThankfulPeople.AllowTakeBack', false)) {
 			$ThanksLogModel = new ThanksLogModel();
 			$Type = GetValue(0, $Sender->RequestArgs);
 			$ObjectID = GetValue(1, $Sender->RequestArgs);
@@ -49,35 +71,76 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 				Redirect($Target);
 			}
 			$ThankfulPeopleDataSet = $ThanksLogModel->GetThankfulPeople($Type, $ObjectID);
-			$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), False));
+			$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), false));
 			$Sender->Render();
 		}
 	}
 
-	public function PluginController_ThankFor_Create($Sender) {
-		$Session = $this->Session;
-		if (!$Session->IsValid()) return;
+	/**
+	 * Adda a "thanks" to the specified object.
+	 *
+	 * @param Gdn_Controller Sender Sending controller instance.
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 */
+	public function PluginController_ThankFor_Create($Sender, $ObjectType, $ObjectID) {
+		$Session = Gdn::Session();
+		if(!$Session->IsValid()) {
+			return;
+		}
+		$Result = Definitions::RES_OK;
+
 		//$Sender->Permission('Plugins.ThankfulPeople.Thank'); // TODO: PERMISSION THANK FOR CATEGORY
-		$ThanksLogModel = new ThanksLogModel();
-		$Type = GetValue(0, $Sender->RequestArgs);
-		$ObjectID = GetValue(1, $Sender->RequestArgs);
-		$Field = $ThanksLogModel->GetPrimaryKeyField($Type);
-		$UserID = $ThanksLogModel->GetObjectInserUserID($Type, $ObjectID);
-		if ($UserID == False) throw new Exception('Object has no owner.');
-		if ($UserID == $Session->UserID) throw new Exception('You cannot thank yourself.');
-		if (!self::IsThankable($Type)) throw new Exception("Not thankable ($Type).");
+		//$ObjectType = GetValue(0, $Sender->RequestArgs);
+		//$ObjectID = GetValue(1, $Sender->RequestArgs);
+		//$Field = $this->ThanksLogModel->GetPrimaryKeyField($ObjectType);
+		$ObjectInsertUserID = $ThanksLogModel->GetObjectInsertUserID($ObjectType, $ObjectID);
 
+		if($ObjectInsertUserID == $Session->UserID) {
+			$Sender->SetData('Error', T('ThankfulPeople_Thanks_CannotThankYourOwn',
+																	'You cannot thank yourself.'));
+			$Result = Definitions::RES_ERR_CANNOT_THANK_YOUR_OWN;
+		}
+
+		if($Result == Definitions::RES_OK) {
+			if(!$this->IsThankable($ObjectType)) {
+				$Sender->SetData('Error', sprintf(T('ThankfulPeople_Thanks_ObjectThankDisallowed',
+																						'Thanks not allowed for object type "%s".'),
+																					$ObjectType));
+				$Result = Definitions::RES_ERR_CANNOT_THANK_OBJECT_TYPE;
+			}
+		}
+
+		if($Result == Definitions::RES_OK) {
+			$Wheres = array(
+				'TL.InsertUserID' => $Session->UserID,
+			);
+			$ThanksCount = $this->ThanksLogModel->GetThanksCountByObjectID($ObjectType, $ObjectID, $Wheres);
+
+			if($ThanksCount > 0) {
+				$Result = Definitions::RES_ERR_OBJECT_ALREADY_THANKED;
+			}
+		}
 		// Make sure that user is not trying to say thanks twice.
-		$Count = $ThanksLogModel->GetCount(array($Field => $ObjectID, 'InsertUserID' => $Session->User->UserID));
-		if ($Count < 1) $ThanksLogModel->PutThank($Type, $ObjectID, $UserID);
+		//$Count = $ThanksLogModel->GetCount(array($Field => $ObjectID, 'InsertUserID' => $Session->User->UserID));
 
-		if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) {
-			$Target = GetIncomingValue('Target', 'discussions');
+		if($Result == Definitions::RES_OK) {
+			// TODO Implement saving of the thanks
+			$this->ThanksLogModel->Save($ObjectType, $ObjectID, $UserID);
+		}
+
+		//if ($Count < 1) $ThanksLogModel->PutThank($ObjectType, $ObjectID, $UserID);
+
+		// If Delivery Type = ALL, redirect to the specified target, defaulting to
+		// the referer and, as a last resort, to the Discussions list page
+		if($Sender->DeliveryType() == DELIVERY_TYPE_ALL) {
+			$Target = Gdn::Request()->Get('Target', GetValue('HTTP_REFERER', $Server, Url('/discussions', true)));
 			Redirect($Target);
 		}
 
-		$ThankfulPeopleDataSet = $ThanksLogModel->GetThankfulPeople($Type, $ObjectID);
-		$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), False));
+		// TODO Get all the thanks received by the object and set it to the controller's data
+		$ThankfulPeopleDataSet = $ThanksLogModel->GetThankfulPeople($ObjectType, $ObjectID);
+		$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), false));
 		$Sender->Render();
 	}
 
@@ -114,16 +177,16 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$Sender->AddDefinition('CollapseThankList', T('CollapseThankList'));
 	}
 
-	public static function IsThankable($Type) {
+	public static function IsThankable($ObjectType) {
 		static $ThankOnly, $ThankDisabled;
-		$Type = strtolower($Type);
+		$ObjectType = strtolower($ObjectType);
 		if (is_null($ThankOnly)) $ThankOnly = C('Plugins.ThankfulPeople.Only');
 		if (is_array($ThankOnly)) {
-			if (!in_array($Type, $ThankOnly)) return False;
+			if (!in_array($ObjectType, $ThankOnly)) return false;
 		}
 		if (is_null($ThankDisabled)) $ThankDisabled = C('Plugins.ThankfulPeople.Disabled');
 		if (is_array($ThankDisabled)) {
-			if (in_array($Type, $ThankDisabled)) return False;
+			if (in_array($ObjectType, $ThankDisabled)) return false;
 		}
 		return True;
 	}
@@ -136,21 +199,21 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$SessionUserID = $this->Session->UserID;
 		if ($SessionUserID <= 0 || $Object->InsertUserID == $SessionUserID) return;
 
-		if (!self::IsThankable($Type)) return;
+		if (!$this->IsThankable($Type)) return;
 
 		static $AllowTakeBack;
-		if (is_null($AllowTakeBack)) $AllowTakeBack = C('Plugins.ThankfulPeople.AllowTakeBack', False);
+		if (is_null($AllowTakeBack)) $AllowTakeBack = C('Plugins.ThankfulPeople.AllowTakeBack', false);
 		$AllowThank = True;
 
 		switch ($Type) {
 			case 'Discussion': {
 				$DiscussionID = $ObjectID = $Object->DiscussionID;
-				if (array_key_exists($SessionUserID, $this->DiscussionData)) $AllowThank = False;
+				if (array_key_exists($SessionUserID, $this->DiscussionData)) $AllowThank = false;
 				break;
 			}
 			case 'Comment': {
 				$CommentID = $ObjectID = $Object->CommentID;
-				if (array_key_exists($CommentID, $this->ThankForComment) && in_array($SessionUserID, $this->ThankForComment[$CommentID])) $AllowThank = False;
+				if (array_key_exists($CommentID, $this->ThankForComment) && in_array($SessionUserID, $this->ThankForComment[$CommentID])) $AllowThank = false;
 				break;
 			}
 		}
@@ -175,7 +238,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	public function DiscussionController_AfterCommentBody_Handler($Sender) {
 		$Object = $Sender->EventArguments['Object'];
 		$Type = $Sender->EventArguments['Type'];
-		$ThankedByBox = False;
+		$ThankedByBox = false;
 		switch ($Type) {
 			case 'Comment': {
 				$ThankedByCollection =& $this->CommentGroup[$Object->CommentID];
@@ -188,7 +251,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 			}
 			default: throw new Exception('What...');
 		}
-		if ($ThankedByBox !== False) echo $ThankedByBox;
+		if ($ThankedByBox !== false) echo $ThankedByBox;
 	}
 
 	public static function ThankedByBox($Collection, $Wrap = True) {
@@ -237,47 +300,72 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$Sender->Render();
 	}
 
-	public function Tick_Every_720_Hours_Handler($Sender) {
+	/**
+	 * Plugin setup
+	 *
+	 * This method is fired only once, immediately after the plugin has been enabled in the /plugins/ screen,
+	 * and is a great place to perform one-time setup tasks, such as database structure changes,
+	 * addition/modification ofconfig file settings, filesystem changes, etc.
+	 */
+	public function Setup() {
+		// Set up the plugin's default values
+
+		// Create Database Objects needed by the Plugin
+		require('install/thankfulpeople.schema.php');
+		Schema::Install();
+	}
+
+	/**
+	 * Cleanup operations to be performend when the Plugin is disabled, but not
+	 * permanently removed.
+	 */
+	public function OnDisable() {
+	}
+
+	/**
+	* Plugin cleanup
+	*
+	* This method is fired only once, when the plugin is removed, and is a great place to
+	* perform cleanup tasks such as deletion of unsued files and folders.
+	*/
+	public function CleanUp() {
+		// Drop Database Objects created by the Plugin
+		require('install/thankfulpeople.schema.php');
+		Schema::Uninstall();
+	}
+
+	/**
+	 * Recalculates the thanks received by users.
+	 */
+	protected function Recalculate_Thanks() {
 		ThanksLogModel::CleanUp();
 		ThanksLogModel::RecalculateUserReceivedThankCount();
 	}
 
-	public function Structure() {
-/*		Gdn::Structure()
-			->Table('Comment')
-			->Column('ThankCount', 'usmallint', 0)
-			->Set();
+	/**
+	 * This function will be called by Cron Plugin. All operations that need to be
+	 * executed periodically should be entered here.
+	 */
+	public function Cron() {
+		$UpdateInterval = C('Plugin.TankfulPeople.ThanksCountUpdateInterval', Definitions::DEFAULT_RECALC_INTERVAL);
+		// Retrieves the date and time of when the processing of User Titles ran last
+		$LastRecalcRun = C('Plugin.TankfulPeople.LastRecalculationRun', 0);
 
-		Gdn::Structure()
-			->Table('Discussion')
-			->Column('ThankCount', 'usmallint', 0)
-			->Set();*/
-		Gdn::Structure()
-			->Table('User')
-			//->Column('ThankCount', 'usmallint', 0)
-			->Column('ReceivedThankCount', 'usmallint', 0)
-			->Set();
+		// If last processing occurred more than X hours ago (as specified by the
+		// UpdateInterval), run the processing again
+		if(strtotime('-' . $UpdateInterval . 'hours') > $LastRecalcRun) {
+			// Process (and assign) User Titles
+			$this->Recalculate_Thanks();
 
-		Gdn::Structure()
-			->Table('ThanksLog')
-			->Column('UserID', 'umediumint', False, 'key')
-			->Column('CommentID', 'umediumint', 0)
-			->Column('DiscussionID', 'umediumint', 0)
-			->Column('DateInserted', 'datetime')
-			->Column('InsertUserID', 'umediumint', False, 'key')
-			->Engine('MyISAM')
-			->Set();
-
-		$RequestArgs = Gdn::Controller()->RequestArgs;
-		if (ArrayHasValue($RequestArgs, 'vanilla')) {
-			ThanksLogModel::RecalculateUserReceivedThankCount();
+			// Save last time of Titles Processing
+			SaveToConfig('Plugin.TankfulPeople.LastRecalculationRun', now());
 		}
-
-		//ThanksLogModel::RecalculateCommentThankCount();
-		//ThanksLogModel::RecalculateDiscussionThankCount();
 	}
 
-	public function Setup() {
-		$this->Structure();
+	/**
+	 * Register plugin for Cron Jobs.
+	 */
+	public function CronJobsPlugin_CronJobRegister_Handler($Sender){
+		$Sender->RegisterCronJob($this);
 	}
 }

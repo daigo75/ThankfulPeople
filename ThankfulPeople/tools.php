@@ -7,7 +7,7 @@ $MaxUserID = $SQL->Select('UserID', 'max', 'MaxUserID')->From('User')->Get()->Fi
 
 if ($Argument == 'structure') {
 	$ThankfulPeoplePlugin = new ThankfulPeoplePlugin();
-	$Drop = Console::Argument('drop') !== False;
+	$Drop = Console::Argument('drop') !== false;
 	$ThankfulPeoplePlugin->Structure($Drop);
 }
 elseif ($Argument == 'calc') {
