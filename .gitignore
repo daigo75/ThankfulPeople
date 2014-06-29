@@ -1,3 +1,4 @@
 *.komodotools
-/TopContributors/install/plugin.schema.php
-/Tagging/vendor
+/ThankfulPeople/vendor
+
+/*.komodoproject
