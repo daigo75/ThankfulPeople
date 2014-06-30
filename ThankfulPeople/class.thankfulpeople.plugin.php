@@ -13,7 +13,12 @@ $PluginInfo['ThankfulPeople'] = array(
 	'RequiredPlugins' => array(
 		'AeliaFoundationClasses' => '14.06.24.001',
 	),
-	'License' => 'GPLv3'
+	'License' => 'GPLv3',
+	'RegisterPermissions' => array(
+		'ThankfulPeople.Thanks.Send',
+		'ThankfulPeople.Thanks.Revoke',
+		'ThankfulPeople.Thanks.SendToOwn',
+	),
 );
 
 // TODO: PERMISSION THANK FOR CATEGORY
@@ -88,6 +93,10 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		if(!$Session->IsValid()) {
 			return;
 		}
+
+		// Check that the user has the permission to say "thanks"
+		$Sender->Permission('ThankfulPeople.Thanks.Send');
+
 		$Result = Definitions::RES_OK;
 
 		//$Sender->Permission('Plugins.ThankfulPeople.Thank'); // TODO: PERMISSION THANK FOR CATEGORY
@@ -96,7 +105,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		//$Field = $this->ThanksLogModel->GetPrimaryKeyField($ObjectType);
 		$ObjectInsertUserID = $ThanksLogModel->GetObjectInsertUserID($ObjectType, $ObjectID);
 
-		if($ObjectInsertUserID == $Session->UserID) {
+		if(($ObjectInsertUserID == $Session->UserID) && !$Session->CheckPermissions('ThankfulPeople.Thanks.SendToOwn')) {
 			$Sender->SetData('Error', T('ThankfulPeople_Thanks_CannotThankYourOwn',
 																	'You cannot thank yourself.'));
 			$Result = Definitions::RES_ERR_CANNOT_THANK_YOUR_OWN;
@@ -149,7 +158,11 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 			return;
 		}
 
-		if (!($Sender->DeliveryType() == DELIVERY_TYPE_ALL && $Sender->SyndicationMethod == SYNDICATION_NONE)) return;
+		// If not rendering a page or a view, do nothing
+		if(!($Sender->DeliveryType() == DELIVERY_TYPE_ALL && $Sender->SyndicationMethod == SYNDICATION_NONE)) {
+			return;
+		}
+
 		$ThanksLogModel = new ThanksLogModel();
 		$DiscussionID = $Sender->DiscussionID;
 		// TODO: Permission view thanked
@@ -177,18 +190,27 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$Sender->AddDefinition('CollapseThankList', T('CollapseThankList'));
 	}
 
-	public static function IsThankable($ObjectType) {
-		static $ThankOnly, $ThankDisabled;
-		$ObjectType = strtolower($ObjectType);
-		if (is_null($ThankOnly)) $ThankOnly = C('Plugins.ThankfulPeople.Only');
-		if (is_array($ThankOnly)) {
-			if (!in_array($ObjectType, $ThankOnly)) return false;
+	/**
+	 * Determines if thanks can be sent for specific object type.
+	 *
+	 * @param string ObjectType The object type candidate to receive a thanks.
+	 * @return bool
+	 */
+	public function IsThankable($ObjectType) {
+		$AllowedObjectTypes = $this->AllowedObjectTypes();
+		$DisallowedObjectTypes = $this->DisallowedObjectTypes();
+
+		// If "disallowed objects" list is populated, and object type is in it, then
+		// the "thanks" cannot be sent
+		if(is_array($DisallowedObjectTypes) && InArrayI($ObjectType, $DisallowedObjectTypes)) {
+			return false;
 		}
-		if (is_null($ThankDisabled)) $ThankDisabled = C('Plugins.ThankfulPeople.Disabled');
-		if (is_array($ThankDisabled)) {
-			if (in_array($ObjectType, $ThankDisabled)) return false;
+
+		// If "allowed objects" list is NOT populated, or object type is in it, then
+		// the "thanks" can be sent
+		if(!is_array($AllowedObjectTypes) || InArrayI($ObjectType, $AllowedObjectTypes)) {
+			return true;
 		}
-		return True;
 	}
 
 	public function DiscussionController_CommentOptions_Handler($Sender) {
