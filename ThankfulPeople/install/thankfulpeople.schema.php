@@ -16,7 +16,7 @@ class Schema extends \Aelia\Schema {
 			->Column('ObjectType', 'varchar(50)', false)
 			->Column('ObjectID', 'int', false)
 			->Column('InsertUserID', 'int', false, 'key')
-			->Column('DateInserted', 'datetime', 'key')
+			->Column('DateInserted', 'datetime', null, 'key')
 			->Engine('InnoDB')
 			->Set(false, false);
 
