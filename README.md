@@ -3,7 +3,7 @@
 ##Description
 Thankful People plugin implements adds a "thanks" feature to your forum. Users can click on a "Thanks" button to thank each other on  posts, comments and virtually any other entity.
 
-##Credit
+##Credits
 Plugin was commissioned by [ThankFrank.com](http://thankfrank.com), an online community dedicated to provide genuine and honest help to online shoppers.
 
 **Important**: this plugin was initially based on [Thankful People by Jerl Liandri](http://vanillaforums.org/addon/thankfulpeople-plugin), but has been heavily redesigned for use by [ThankFrank.com](http://thankfrank.com). While most of its features work on the same way, it's not compatible out of the box with the original plugin. If you wish to use move from the old plugin to the new one, please take a backup of your database first, then install the new plugin and migrate the old data to the new format.
