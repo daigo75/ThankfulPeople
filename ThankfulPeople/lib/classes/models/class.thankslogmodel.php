@@ -1,6 +1,6 @@
 <?php if (!defined('APPLICATION')) exit();
 
-class ThanksLogModel extends Gdn_Model {
+class ThanksLogModel extends \Aelia\Model {
 
 	protected static $TableFields = array(
 		'comment' => 'CommentID',
@@ -14,9 +14,18 @@ class ThanksLogModel extends Gdn_Model {
 		$this->FireEvent('AfterConstruct');
 	}
 
+	/**
+	 * Returns the amount of thanks received by a specific object.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @param array ExtraWheres Additional WHERE clauses to be used by the query.
+	 * This parameter can be used, for example, to filter by recipient, or by sender.
+	 * @return int|false
+	 */
 	public function GetThanksCountByObjectID($ObjectType, $ObjectID, $ExtraWheres = array()) {
 		$Result = $this->SQL
-			->Select('TL.ThanksLogID', 'COUNT(%s)', 'ThanksCount')
+			->Select('TL.ThankID', 'COUNT(%s)', 'ThanksCount')
 			->From('ThanksLog TL')
 			->Where('TL.ObjectType', $ObjectType)
 			->Where('TL.ObjectID', $ObjectID)
@@ -24,7 +33,7 @@ class ThanksLogModel extends Gdn_Model {
 			->GroupBy('TL.ObjectType')
 			->GroupBy('TL.ObjectID')
 			->Get()
-			->FirstRow();
+			->Value('ThanksCount');
 
 		return $Result;
 	}
@@ -72,45 +81,90 @@ class ThanksLogModel extends Gdn_Model {
 		return ArrayValue($Name, self::$TableNames, ucfirst($Name));
 	}
 
-	public static function GetObjectInsertUserID($Name, $ObjectID) {
-		$Field = self::GetPrimaryKeyField($Name);
-		$Table = self::GetTableName($Name);
-		$UserID = Gdn::SQL()
-			->Select('InsertUserID')
-			->From($Table)
-			->Where($Field, (int)$ObjectID, false, false)
-			->Get()
-			->Value('InsertUserID');
-		return $UserID; // NOTE: Gdn_DataSet.Value returns NULL, but should false as FirstRow()
+	public function GetObjectInsertUserID($ObjectType, $ObjectID) {
+		$this->EventArguments['ObjectType'] = $ObjectType;
+		$this->EventArguments['ObjectID'] = $ObjectID;
+		$this->FireEvent('BeforeGetObjectInsertUserID');
+
+		if(isset($this->EventArguments['ObjectInsertUserID'])) {
+			return $this->EventArguments['ObjectInsertUserID'];
+		}
+
+		$Result = null;
+		$SQL = clone $this->SQL;
+		switch(strtolower($ObjectType)) {
+			case 'discussion':
+				$SQL
+					->Select('InsertUserID')
+					->From('Discussion')
+					->Where('DiscussionID', $ObjectID);
+				break;
+			case 'comment':
+				$SQL
+					->Select('InsertUserID')
+					->From('Comment')
+					->Where('CommentID', $ObjectID);
+				break;
+			default:
+				$SQL = null;
+		}
+
+		if(!empty($SQL)) {
+			$Result = $SQL->Get()->Value('InsertUserID');
+		}
+		return $Result;
 	}
 
-	public static function RemoveThank($Type, $ObjectID, $SessionUserID) {
-		$Field = self::GetPrimaryKeyField($Type);
-		$UserID = self::GetObjectInsertUserID($Type, $ObjectID);
-		$SQL = Gdn::SQL();
-		$SQL
-			->Where($Field, $ObjectID)
-			->Where('InsertUserID', $SessionUserID)
-			->Limit(1)
-			->Delete('ThanksLog');
-		self::UpdateUserReceivedThankCount($UserID, '-1');
+	/**
+	 * Deletes an entry from the Thanks Log.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @param string SenderUserID The ID of the user who sent the Thanks. This
+	 * is used to ensure that the correct thanks is deleted.
+	 * @return int|null
+	 */
+	public function Delete($ObjectType, $ObjectID, $SenderUserID) {
+		$this->Database->BeginTransaction();
+
+		try {
+			$Result = $this->SQL->Delete('ThanksLog', array(
+				'ObjectType' => $ObjectType,
+				'ObjectID' => $ObjectID,
+				'InsertUserID' => $SenderUserID,
+			));
+
+			if(($RowsAffected = $Result->PDOStatement()->rowCount()) > 0) {
+				$this->UpdateUserReceivedThankCount($UserID, $RowsAffected * -1);
+			}
+		}
+		catch(Exception $e) {
+			$ErrMsg = sprintf(T('ThanksLogModel_Delete_Exception',
+													'Unexpected exception occurred while deleting from ThanksLog table. Received arguments ' .
+													'(JSON): "%s". Exception message: "%s".'),
+												json_encode(func_get_args()),
+												$e->getMessage());
+			$this->Log()->error($ErrMsg);
+			return null;
+		}
+		$this->Database->CommitTransaction();
+		return $RowsAffected;
 	}
 
-	public static function PutThank($Type, $ObjectID, $UserID) {
-		$Field = self::GetPrimaryKeyField($Type);
-		$SQL = Gdn::SQL();
-		$SQL
-			->History(false, True)
-			->Set($Field, $ObjectID)
-			->Set('UserID', $UserID)
-			->Insert('ThanksLog', array()); // BUG: https://github.com/vanillaforums/Garden/issues/566
-		self::UpdateUserReceivedThankCount($UserID);
-		//$Function = 'Recalculate'.$Type.'ThankCount';
-		//call_user_func(array('self', $Function), $ObjectID);
-	}
+	//public function PutThank($ObjectType, $ObjectID, $UserID) {
+	//	$SQL = Gdn::SQL();
+	//	$SQL
+	//		->Insert('ThanksLog', array(
+	//			'ObjectType' => $ObjectType,
+	//			'ObjectID' => $ObjectID,
+	//			'UserID' => $UserID,
+	//		));
+	//	$this->UpdateUserReceivedThankCount($UserID);
+	//}
 
-	public static function UpdateUserReceivedThankCount($UserID, $Value = '+1') {
-		if (!in_array($Value, array('-1', '+1'))) $Value = '+1';
+	public function UpdateUserReceivedThankCount($UserID, $Value) {
+		$Value = (int)$Value;
+
 		Gdn::SQL()
 			->Update('User')
 			->Set('ReceivedThankCount', 'ReceivedThankCount' . $Value, false)
@@ -118,7 +172,7 @@ class ThanksLogModel extends Gdn_Model {
 			->Put();
 	}
 
-	public static function RecalculateUserReceivedThankCount() {
+	public function RecalculateUserReceivedThankCount() {
 		$SQL = Gdn::SQL();
 		$SqlCount = $SQL
 			->Select('*', 'count', 'Count')
