@@ -11,7 +11,6 @@ class ThanksLogModel extends \Aelia\Model {
 
 	public function __construct() {
 		parent::__construct('ThanksLog');
-		$this->FireEvent('AfterConstruct');
 	}
 
 	/**
@@ -151,17 +150,13 @@ class ThanksLogModel extends \Aelia\Model {
 		return $RowsAffected;
 	}
 
-	//public function PutThank($ObjectType, $ObjectID, $UserID) {
-	//	$SQL = Gdn::SQL();
-	//	$SQL
-	//		->Insert('ThanksLog', array(
-	//			'ObjectType' => $ObjectType,
-	//			'ObjectID' => $ObjectID,
-	//			'UserID' => $UserID,
-	//		));
-	//	$this->UpdateUserReceivedThankCount($UserID);
-	//}
-
+	/**
+	 * Updates the amount of thanks received by a User.
+	 *
+	 * @param int UserID The user's ID.
+	 * @param int Value The value to add (when positive) or subtract (when
+	 * negative).
+	 */
 	public function UpdateUserReceivedThankCount($UserID, $Value) {
 		$Value = (int)$Value;
 
@@ -275,4 +270,22 @@ class ThanksLogModel extends \Aelia\Model {
 			where d.DiscussionID is null and t.DiscussionID > 0");
 	}
 
+	/**
+   * Takes a set of form data ($Form->_PostValues), validates them, and
+   * inserts or updates them to the datatabase.
+   *
+   * @param array $FormPostValues An associative array of $Field => $Value pairs that represent data posted
+   * from the form in the $_POST or $_GET collection.
+   * @param array $Settings If a custom model needs special settings in order to perform a save, they
+   * would be passed in using this variable as an associative array.
+   * @return array|bool An array with the page ID and Url ID, or false on failure.
+   *
+	 * @see \AeliaBaseModel\Save()
+	 */
+  public function Save($FormPostValues, $Settings = false) {
+		$Result = parent::Save($FormPostValues, $Settings);
+
+		//var_dump($FormPostValues, $this->ValidationResults());
+		return $Result;
+	}
 }

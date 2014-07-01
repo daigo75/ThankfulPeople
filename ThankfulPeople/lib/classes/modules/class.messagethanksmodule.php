@@ -12,34 +12,36 @@ class MessageThanksModule extends \Aelia\Module {
 		return 'Content';
 	}
 
-	protected function SetData($MessageID, $Message) {
-		if(!is_object($Message)) {
-			$ErrMsg = sprintf(T('Argument "Message" must be either a discussion or a comment object. ' .
+	public function SetParams($ObjectType, $ObjectID, $Object) {
+		if(!is_object($Object)) {
+			$ErrMsg = sprintf(T('Argument "Object" must be either a discussion or a comment object. ' .
 													'Received value (JSON): "%s".'),
-												json_encode($Message));
+												json_encode($Object));
 			$this->Log()->error($ErrMsg);
 
-			if(Gdn::Session()->CheckPermissions('Garden.Settings.Manage')) {
+			if(Gdn::Session()->CheckPermission('Garden.Settings.Manage')) {
 				throw new InvalidArgumentException($ErrMsg);
 			}
 			return;
 		}
 
-		$this->EventArguments['Message'] = $Message;
-		$this->EventArguments['MessageID'] = $MessageID;
+		$this->EventArguments['ObjectType'] = $ObjectType;
+		$this->EventArguments['ObjectID'] = $ObjectID;
+		$this->EventArguments['Object'] = $Object;
 		$this->FireEvent('MessageThanks_AfterLoadData');
 
-		$this->SetData('MessageID', $MessageID);
-		$this->SetData('Message', $Message);
+		$this->SetData('ObjectType', $ObjectType);
+		$this->SetData('ObjectID', $ObjectID);
+		$this->SetData('Object', $Object);
 	}
 
 	public function ToString() {
-		if($this->Data('Message', null) == null) {
-			$ErrMsg = sprintf(T('No discussion or comment was passed to the module. You must call ' .
+		if($this->Data('Object', null) == null) {
+			$ErrMsg = sprintf(T('No object was passed to the module. You must call ' .
 													'%s::SetData() before rendering this module.'),
 												get_class());
 			$this->Log()->error($ErrMsg);
-			if(Gdn::Session()->CheckPermissions('Garden.Settings.Manage')) {
+			if(Gdn::Session()->CheckPermission('Garden.Settings.Manage')) {
 				throw new InvalidArgumentException($ErrMsg);
 			}
 		}

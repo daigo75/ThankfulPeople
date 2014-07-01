@@ -3,7 +3,7 @@
 $PluginInfo['ThankfulPeople'] = array(
 	'Name' => 'Thankful People',
 	'Description' => 'Remake of classic Vanilla One extension. Instead of having people post appreciation and thankyou notes they can simply click the thanks link and have their username appear under that post (MySchizoBuddy).',
-	'Version' => '1.0.0.140629',
+	'Version' => '1.1.0.140701',
 	'Author' => 'Diego Zanella (original by Jerl Liandri)',
 	'AuthorUrl' => 'http://www.aelia.co',
 	'RequiredApplications' => array(
@@ -21,20 +21,16 @@ $PluginInfo['ThankfulPeople'] = array(
 	),
 );
 
-// TODO: PERMISSION THANK FOR CATEGORY
-// TODO: AttachMessageThankCount
-
 use Aelia\Plugins\ThankfulPeople\Schema;
 use Aelia\Plugins\ThankfulPeople\Definitions;
 
 class ThankfulPeoplePlugin extends Gdn_Plugin {
-	protected $ThankForComment = array(); // UserIDs array
-	protected $CommentGroup = array();
-	protected $DiscussionData = array();
 	private $Session;
 
 	public function __construct() {
 		require_once(__DIR__ . '/vendor/autoload.php');
+		parent::__construct();
+
 		$this->Session = Gdn::Session();
 		$this->ThanksLogModel = new ThanksLogModel();
 	}
@@ -55,30 +51,87 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		return $this->_AllowedObjectTypes;
 	}
 
-//  public function DiscussionController_AfterCommentMeta_Handler(&$Sender) {
-//		$this->AttachMessageThankCount($Sender);
-//	}
-//
-//	protected function AttachMessageThankCount($Sender) {
-//		$ThankCount = mt_rand(1, 33);
-//		echo '<div class="ThankCount">'.Plural($Posts, 'Thanks: %s', 'Thanks: %s'), number_format($ThankCount, 0).'</div>';
-//	}
-
-	public function PluginController_UnThankFor_Create($Sender) {
-		$SessionUserID = GetValue('UserID', Gdn::Session());
-		if($SessionUserID > 0 && C('Plugins.ThankfulPeople.AllowTakeBack', false)) {
-			$ThanksLogModel = new ThanksLogModel();
-			$Type = GetValue(0, $Sender->RequestArgs);
-			$ObjectID = GetValue(1, $Sender->RequestArgs);
-			$ThanksLogModel->RemoveThank($Type, $ObjectID, $SessionUserID);
-			if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) {
-				$Target = GetIncomingValue('Target', 'discussions');
-				Redirect($Target);
-			}
-			$ThankfulPeopleDataSet = $ThanksLogModel->GetThankfulPeople($Type, $ObjectID);
-			$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), false));
-			$Sender->Render();
+	protected function AllowRevokingThanks() {
+		if(empty($this->_AllowRevokingThanks)) {
+			$this->_AllowRevokingThanks = C('Plugins.ThankfulPeople.AllowRevoke', false);
 		}
+
+		return $this->_AllowRevokingThanks;
+	}
+
+	/**
+	 * Given an object (Discussion, Comment, etc), returns its ID.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @return int|null
+	 */
+	protected function GetObjectID($ObjectType, $Object) {
+		$ObjectID = null;
+		switch($ObjectType) {
+			case 'Question':
+			case 'Discussion':
+				$ObjectID = $Object->DiscussionID;
+				break;
+			case 'Comment':
+				$ObjectID = $Object->CommentID;
+				break;
+		}
+
+		$this->EventArguments['ObjectType'] = $Object;
+		$this->EventArguments['Object'] = $Object;
+		$this->EventArguments['ObjectID'] = $ObjectID;
+		$this->FireEvent('GetObjectID');
+
+		$ObjectID = $this->EventArguments['ObjectID'];
+		if(empty($ObjectID)) {
+			$ErrMsg = sprintf(T('ThankfulPeople_GetObjectID_UnsupportedType',
+													'Could not retrieve ID of unsupported object type "%s". Object (JSON): "%s".'),
+												$ObjectType,
+												json_encode($Object));
+			$this->Log()->warn($ErrMsg);
+		}
+
+		return $ObjectID;
+	}
+
+	// TODO Implement "revoke thanks" method
+	//public function Controller_RevokeThanks($Sender) {
+	//	$SessionUserID = GetValue('UserID', Gdn::Session());
+	//	if($SessionUserID > 0 && C('Plugins.ThankfulPeople.AllowTakeBack', false)) {
+	//		$ThanksLogModel = new ThanksLogModel();
+	//		$Type = GetValue(0, $Sender->RequestArgs);
+	//		$ObjectID = GetValue(1, $Sender->RequestArgs);
+	//		$ThanksLogModel->RemoveThank($Type, $ObjectID, $SessionUserID);
+	//		if ($Sender->DeliveryType() == DELIVERY_TYPE_ALL) {
+	//			$Target = GetIncomingValue('Target', 'discussions');
+	//			Redirect($Target);
+	//		}
+	//		$ThankfulPeopleDataSet = $ThanksLogModel->GetThankfulPeople($Type, $ObjectID);
+	//		$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), false));
+	//		$Sender->Render();
+	//	}
+	//}
+
+	/**
+	* Create a method called "TopContributors" on the PluginController
+	*
+	* One of the most powerful tools at a plugin developer's fingertips is the ability to freely create
+	* methods on other controllers, effectively extending their capabilities. This method creates the
+	* TopContributors() method on the PluginController, effectively allowing the plugin to be invoked via the
+	* URL: http://www.yourforum.com/plugin/Example/
+	*
+	* From here, we can do whatever we like, including turning this plugin into a mini controller and
+	* allowing us an easy way of creating a dashboard settings screen.
+	*
+	* @param $Sender Sending controller instance
+	*/
+	public function PluginController_ThankfulPeople_Create($Sender) {
+		$Sender->Permission('Vanilla.Settings.Manage');
+		$Sender->Title('Thankful People');
+		$Sender->AddSideMenu('plugin/thankfulpeople');
+
+		$this->Dispatch($Sender, $Sender->RequestArgs);
 	}
 
 	/**
@@ -88,7 +141,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	 * @param string ObjectType The object type (Discussion, Comment, etc).
 	 * @param int ObjectID The object ID.
 	 */
-	public function PluginController_ThankFor_Create($Sender, $ObjectType, $ObjectID) {
+	public function Controller_GiveThanks($Sender) {
 		$Session = Gdn::Session();
 		if(!$Session->IsValid()) {
 			return;
@@ -96,16 +149,19 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 
 		// Check that the user has the permission to say "thanks"
 		$Sender->Permission('ThankfulPeople.Thanks.Send');
+		$Sender->Form->SetModel($this->ThanksLogModel);
 
+		// Only authenticated users can post a Thanks
+		if(!$Sender->Form->AuthenticatedPostback()) {
+			return;
+		}
 		$Result = Definitions::RES_OK;
 
-		//$Sender->Permission('Plugins.ThankfulPeople.Thank'); // TODO: PERMISSION THANK FOR CATEGORY
-		//$ObjectType = GetValue(0, $Sender->RequestArgs);
-		//$ObjectID = GetValue(1, $Sender->RequestArgs);
-		//$Field = $this->ThanksLogModel->GetPrimaryKeyField($ObjectType);
-		$ObjectInsertUserID = $ThanksLogModel->GetObjectInsertUserID($ObjectType, $ObjectID);
+		$ObjectType = $Sender->Form->GetFormValue('ObjectType');
+		$ObjectID = $Sender->Form->GetFormValue('ObjectID');
+		$ObjectInsertUserID = $this->ThanksLogModel->GetObjectInsertUserID($ObjectType, $ObjectID);
 
-		if(($ObjectInsertUserID == $Session->UserID) && !$Session->CheckPermissions('ThankfulPeople.Thanks.SendToOwn')) {
+		if(($ObjectInsertUserID == $Session->UserID) && !$Session->CheckPermission('ThankfulPeople.Thanks.SendToOwn')) {
 			$Sender->SetData('Error', T('ThankfulPeople_Thanks_CannotThankYourOwn',
 																	'You cannot thank yourself.'));
 			$Result = Definitions::RES_ERR_CANNOT_THANK_YOUR_OWN;
@@ -124,21 +180,17 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 			$Wheres = array(
 				'TL.InsertUserID' => $Session->UserID,
 			);
-			$ThanksCount = $this->ThanksLogModel->GetThanksCountByObjectID($ObjectType, $ObjectID, $Wheres);
+			$ThanksCount = (int)$this->ThanksLogModel->GetThanksCountByObjectID($ObjectType, $ObjectID, $Wheres);
 
 			if($ThanksCount > 0) {
 				$Result = Definitions::RES_ERR_OBJECT_ALREADY_THANKED;
 			}
 		}
-		// Make sure that user is not trying to say thanks twice.
-		//$Count = $ThanksLogModel->GetCount(array($Field => $ObjectID, 'InsertUserID' => $Session->User->UserID));
 
 		if($Result == Definitions::RES_OK) {
 			// TODO Implement saving of the thanks
-			$this->ThanksLogModel->Save($ObjectType, $ObjectID, $UserID);
+			$SaveResult = $Sender->Form->Save();
 		}
-
-		//if ($Count < 1) $ThanksLogModel->PutThank($ObjectType, $ObjectID, $UserID);
 
 		// If Delivery Type = ALL, redirect to the specified target, defaulting to
 		// the referer and, as a last resort, to the Discussions list page
@@ -154,32 +206,9 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	public function DiscussionController_Render_Before($Sender) {
-		if(empty($Sender->CommentData)) {
-			return;
-		}
-
 		// If not rendering a page or a view, do nothing
 		if(!($Sender->DeliveryType() == DELIVERY_TYPE_ALL && $Sender->SyndicationMethod == SYNDICATION_NONE)) {
 			return;
-		}
-
-		$ThanksLogModel = new ThanksLogModel();
-		$DiscussionID = $Sender->DiscussionID;
-		// TODO: Permission view thanked
-		$CommentIDs = ConsolidateArrayValuesByKey($Sender->CommentData->Result(), 'CommentID');
-		$DiscussionCommentThankDataSet = $ThanksLogModel->GetDiscussionComments($DiscussionID, $CommentIDs);
-
-		// TODO: FireEvent here to allow collect thanks from other objects
-
-		// Consolidate.
-		foreach ($DiscussionCommentThankDataSet as $ThankData) {
-			$CommentID = $ThankData->CommentID;
-			if ($CommentID > 0) {
-				$this->CommentGroup[$CommentID][] = $ThankData;
-				$this->ThankForComment[$CommentID][] = $ThankData->UserID;
-			} elseif ($ThankData->DiscussionID > 0) {
-				$this->DiscussionData[$ThankData->UserID] = $ThankData;
-			}
 		}
 
 		$Sender->AddJsFile('jquery.expander.js');
@@ -196,7 +225,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	 * @param string ObjectType The object type candidate to receive a thanks.
 	 * @return bool
 	 */
-	public function IsThankable($ObjectType) {
+	protected function IsThankable($ObjectType) {
 		$AllowedObjectTypes = $this->AllowedObjectTypes();
 		$DisallowedObjectTypes = $this->DisallowedObjectTypes();
 
@@ -213,51 +242,113 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		}
 	}
 
+	/**
+	 * Alters the SQL of a DiscussionModel to join with the ThanksLog, in order
+	 * to retrieve the Thanks received by it
+	 *
+	 * @param Gdn_Model Sender Sending controller instance.
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @param int InsertUserID If specified, it's used to further narrow down the
+	 * JOIN.
+	 * @param array ExtraWheres An array of additional WHERE clauses.
+	 */
+	protected function JoinWithThanksLog(Gdn_Model $Sender, $ObjectType, $KeyField, $InsertUserID = null, $ExtraWheres = array()) {
+		$JoinClause = "(TL.ObjectType = $ObjectType) AND (TL.ObjectID = $KeyField)";
+
+		$InsertUserID = (int)$InsertUserID;
+		if($InsertUserID > 0) {
+			$JoinClause .= "AND (TL.InsertUserID = $InsertUserID)";
+		}
+
+		$Sender->SQL
+			->Select('TL.ThankID', '', 'ThankID')
+			->Select('TL.DateInserted', '', 'DateThanked')
+			->LeftJoin('v_TP_ThanksLog TL', $JoinClause)
+			->BeginWhereGroup()
+			->Where($ExtraWheres)
+			->EndWhereGroup();
+	}
+
+	/**
+	 * Handler of Event DiscussionModel::BeforeGet.
+	 * Alter SQL of Discussions Model to add "thanks" information.
+	 *
+	 * @param DiscussionModel Sender Sending controller instance.
+	 */
+	public function DiscussionModel_BeforeGet_Handler($Sender) {
+		$this->JoinWithThanksLog($Sender, 'd.Type', 'd.DiscussionID', Gdn::Session()->UserID);
+	}
+
+	/**
+	 * Handler of Event DiscussionModel::BeforeGetID.
+	 * Alter SQL of Discussions Model to add "thanks" information.
+	 *
+	 * @param DiscussionModel Sender Sending controller instance.
+	 */
+	public function DiscussionModel_BeforeGetID_Handler($Sender) {
+		$this->JoinWithThanksLog($Sender, 'd.Type', 'd.DiscussionID', Gdn::Session()->UserID);
+	}
+
+	/**
+	 * Handler of Event CommentModel::BeforeGet.
+	 * Alter SQL of Discussions Model to add "thanks" information.
+	 *
+	 * @param CommentModel Sender Sending controller instance.
+	 */
+	public function CommentModel_BeforeGet_Handler($Sender) {
+		$this->JoinWithThanksLog($Sender, "'Comment'", 'c.CommentID', Gdn::Session()->UserID);
+	}
+
+	/**
+	 * Handler of Event CommentModel::BeforeGetIDData.
+	 * Alter SQL of Discussions Model to add "thanks" information.
+	 *
+	 * @param CommentModel Sender Sending controller instance.
+	 */
+	public function CommentModel_BeforeGetIDData_Handler($Sender) {
+		$this->JoinWithThanksLog($Sender, "'Comment'", 'c.CommentID', Gdn::Session()->UserID);
+	}
+
 	public function DiscussionController_CommentOptions_Handler($Sender) {
-		$EventArguments =& $Sender->EventArguments;
-		$Type = $EventArguments['Type'];
+		$EventArguments = &$Sender->EventArguments;
 		$Object = $EventArguments['Object'];
-		//$Session = Gdn::Session();
-		$SessionUserID = $this->Session->UserID;
-		if ($SessionUserID <= 0 || $Object->InsertUserID == $SessionUserID) return;
 
-		if (!$this->IsThankable($Type)) return;
+		$ObjectType = empty($Object->Type) ? $EventArguments['Type'] : $Object->Type;
 
-		static $AllowTakeBack;
-		if (is_null($AllowTakeBack)) $AllowTakeBack = C('Plugins.ThankfulPeople.AllowTakeBack', false);
-		$AllowThank = True;
-
-		switch ($Type) {
-			case 'Discussion': {
-				$DiscussionID = $ObjectID = $Object->DiscussionID;
-				if (array_key_exists($SessionUserID, $this->DiscussionData)) $AllowThank = false;
-				break;
-			}
-			case 'Comment': {
-				$CommentID = $ObjectID = $Object->CommentID;
-				if (array_key_exists($CommentID, $this->ThankForComment) && in_array($SessionUserID, $this->ThankForComment[$CommentID])) $AllowThank = false;
-				break;
-			}
+		if(!Gdn::Session()->IsValid()) {
+			return;
 		}
 
-
-		if ($AllowThank) {
-			static $LocalizedThankButtonText;
-			if ($LocalizedThankButtonText === Null) $LocalizedThankButtonText = T('ThankCommentOption', T('Thanks'));
-			$ThankUrl = 'plugin/thankfor/'.strtolower($Type).'/'.$ObjectID.'?Target='.$Sender->SelfUrl;
-			$Option = '<span class="Thank">'.Anchor($LocalizedThankButtonText, $ThankUrl).'</span>';
-			$Sender->Options .= $Option;
-		} elseif ($AllowTakeBack) {
-			// Allow unthank
-			static $LocalizedUnThankButtonText;
-			if (is_null($LocalizedUnThankButtonText)) $LocalizedUnThankButtonText = T('UnThankCommentOption', T('Unthank'));
-			$UnThankUrl = 'plugin/unthankfor/'.strtolower($Type).'/'.$ObjectID.'?Target='.$Sender->SelfUrl;
-			$Option = '<span class="UnThank">'.Anchor($LocalizedUnThankButtonText, $UnThankUrl).'</span>';
-			$Sender->Options .= $Option;
+		// If thanks are not allowed for this object, move on
+		if(!$this->IsThankable($ObjectType)) {
+			return;
 		}
+
+		// Cannot send a "thanks" for unsupported object types
+		$ObjectID = $this->GetObjectID($ObjectType, $Object);
+		if(empty($ObjectID)) {
+			return;
+		}
+
+		// Debug
+		//var_dump($Object);
+
+		$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
+		// Only user with proper permissions can send a thanks to their own objects
+		if(($Object->InsertUserID == $SessionUserID) && !Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn')) {
+			return;
+		}
+
+		$MessageThanksModule = new MessageThanksModule($Sender);
+		$MessageThanksModule->SetParams($ObjectType, $ObjectID, $Object);
+
+		echo $MessageThanksModule->ToString();
 	}
 
 	public function DiscussionController_AfterCommentBody_Handler($Sender) {
+		return;
+
 		$Object = $Sender->EventArguments['Object'];
 		$Type = $Sender->EventArguments['Type'];
 		$ThankedByBox = false;
