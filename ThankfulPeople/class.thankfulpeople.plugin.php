@@ -2,7 +2,7 @@
 
 $PluginInfo['ThankfulPeople'] = array(
 	'Name' => 'Thankful People',
-	'Description' => 'Remake of classic Vanilla One extension. Instead of having people post appreciation and thankyou notes they can simply click the thanks link and have their username appear under that post (MySchizoBuddy).',
+	'Description' => 'Adds the possibility giving "thanks" to users, to express their appreciation for a good contribution (discussion, question, comment, or anything else).',
 	'Version' => '1.2.0.140702',
 	'Author' => 'Diego Zanella (original by Jerl Liandri)',
 	'AuthorUrl' => 'http://www.aelia.co',
