@@ -34,9 +34,11 @@ class UserModel extends \UserModel {
 	/**
 	 * Recalculates the amount of thanks received by a User.
 	 *
+	 * @param int UserID If specified, the recalculation is performed only for such
+	 * user.
 	 * @return int
 	 */
-	public function RecalculateReceivedThanksCount() {
+	public function RecalculateReceivedThanksCount($UserID = null) {
 		$Px = $this->Px;
 		$UpdateSQL = "
 			UPDATE
@@ -47,6 +49,11 @@ class UserModel extends \UserModel {
 			SET
 				(U.ReceivedThanksCount = URT.ThanksCount)
 		";
+
+		$UserID = (int)$UserID;
+		if($UserID > 0) {
+			$UpdateSQL .= "WHERE (U.UserID = $UserID)";
+		}
 
 		$Result = $this->SQL->Query($UpdateSQL, null);
 
