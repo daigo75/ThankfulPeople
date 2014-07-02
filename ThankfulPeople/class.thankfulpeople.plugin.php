@@ -26,6 +26,7 @@ use Aelia\Plugins\ThankfulPeople\Definitions;
 
 class ThankfulPeoplePlugin extends Gdn_Plugin {
 	private $Session;
+	protected $AutoRenderSettings = array();
 
 	public function __construct() {
 		require_once(__DIR__ . '/vendor/autoload.php');
@@ -45,7 +46,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	/**
-	 * Retrieved and returns the list of object types that cannot be thanked, saved
+	 * Returns the list of object types that cannot be thanked, saved
 	 * in the configuration.
 	 */
 	protected function DisallowedObjectTypes() {
@@ -56,7 +57,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	/**
-	 * Retrieved and returns the list of object types that can be thanked, saved
+	 * Returns the list of object types that can be thanked, saved
 	 * in the configuration.
 	 */
 	protected function AllowedObjectTypes() {
@@ -67,13 +68,24 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	/**
-	 * Retrieved and returns the flag that indicates if thanks can be revoked.
+	 * Returns the flag that indicates if thanks can be revoked.
 	 */
 	protected function AllowRevokingThanks() {
 		if(empty($this->_AllowRevokingThanks)) {
 			$this->_AllowRevokingThanks = C('Plugins.ThankfulPeople.AllowRevoke', false);
 		}
 		return $this->_AllowRevokingThanks;
+	}
+
+	/**
+	 * Retrieved and returns the flag that indicates if thanks can be revoked.
+	 */
+	protected function AutoRender($EntityID) {
+		if(!isset($AutoRenderSettings[$EntityID])) {
+			$AutoRenderSettings[$EntityID] = C('Plugins.ThankfulPeople.AutoRender.' . $EntityID, false);
+		}
+
+		return $AutoRenderSettings[$EntityID];
 	}
 
 	/**
@@ -394,8 +406,12 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	public function DiscussionController_CommentOptions_Handler($Sender) {
-		// TODO Determine if it's worth displaying the Thanks Module automatically
-		//$this->RenderMesssageThanksModule($Sender);
+		if($this->AutoRender('MessageThanksModule')) {
+			$Object = $EventArguments['Object'];
+			$ObjectType = empty($Object->Type) ? $EventArguments['Type'] : $Object->Type;
+
+			$this->RenderMessageThanksModule($Sender, $ObjectType, $Object);
+		}
 	}
 
 	public static function ThankedByBox($Collection, $Wrap = True) {
