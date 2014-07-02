@@ -1,6 +1,12 @@
 <?php if (!defined('APPLICATION')) exit();
 
 class ThanksLogModel extends \Aelia\Model {
+	protected $DiscussionModel;
+	protected $CommentModel;
+	protected $UserModel;
+
+	const PLUS_ONE_THANKS = 1;
+	const MINUS_ONE_THANKS = -1;
 
 	protected static $TableFields = array(
 		'comment' => 'CommentID',
@@ -11,6 +17,10 @@ class ThanksLogModel extends \Aelia\Model {
 
 	public function __construct() {
 		parent::__construct('ThanksLog');
+
+		$this->DiscussionModel = new \Aelia\Plugins\ThankfulPeople\DiscussionModel();
+		$this->CommentModel = new \Aelia\Plugins\ThankfulPeople\CommentModel();
+		$this->UserModel = new \Aelia\Plugins\ThankfulPeople\UserModel();
 	}
 
 	/**
@@ -134,51 +144,30 @@ class ThanksLogModel extends \Aelia\Model {
 			));
 
 			if(($RowsAffected = $Result->PDOStatement()->rowCount()) > 0) {
-				$this->UpdateUserReceivedThankCount($UserID, $RowsAffected * -1);
+				$this->UserModel->UpdateReceivedThanksCount($UserID, $RowsAffected * -1);
 			}
 		}
 		catch(Exception $e) {
+			$this->Database->RollbackTransaction();
 			$ErrMsg = sprintf(T('ThanksLogModel_Delete_Exception',
 													'Unexpected exception occurred while deleting from ThanksLog table. Received arguments ' .
 													'(JSON): "%s". Exception message: "%s".'),
 												json_encode(func_get_args()),
 												$e->getMessage());
 			$this->Log()->error($ErrMsg);
-			return null;
+			return false;
 		}
 		$this->Database->CommitTransaction();
 		return $RowsAffected;
 	}
 
 	/**
-	 * Updates the amount of thanks received by a User.
+	 * Recalculates the thanks received by all users.
 	 *
-	 * @param int UserID The user's ID.
-	 * @param int Value The value to add (when positive) or subtract (when
-	 * negative).
+	 * @return int
 	 */
-	public function UpdateUserReceivedThankCount($UserID, $Value) {
-		$Value = (int)$Value;
-
-		Gdn::SQL()
-			->Update('User')
-			->Set('ReceivedThankCount', 'ReceivedThankCount' . $Value, false)
-			->Where('UserID', $UserID)
-			->Put();
-	}
-
-	public function RecalculateUserReceivedThankCount() {
-		$SQL = Gdn::SQL();
-		$SqlCount = $SQL
-			->Select('*', 'count', 'Count')
-			->From('ThanksLog t')
-			->Where('t.UserID', 'u.UserID', false, false)
-			->GetSelect();
-		$SQL->Reset();
-		$SQL
-			->Update('User u')
-			->Set('u.ReceivedThankCount', "($SqlCount)", false, false)
-			->Put();
+	public function RecalculateUserReceivedThanksCount() {
+		return $this->UserModel->UpdateReceivedThanksCount();
 	}
 
 	public function GetDiscussionComments($DiscussionID, $CommentData, $Where = Null) {
@@ -259,7 +248,68 @@ class ThanksLogModel extends \Aelia\Model {
 		return $Result;
 	}
 
-	public static function CleanUp() {
+	protected function RunDelete($SQL) {
+		$Result = $this->SQL->Query($SQL, 'delete');
+		$RowsAffected = $Result->PDOStatement()->rowCount();
+
+		return $RowsAffected;
+	}
+
+	protected function DeleteOrphanThanks() {
+		$Px = $this->Database->DatabasePrefix;
+		$Result = array();
+		$CleanupQueries = array(
+			// Delete orphan thanks for Discussions
+			'Discussions' => "
+				DELETE {$Px}ThanksLog
+				FROM
+					{$Px}ThanksLog
+					LEFT JOIN
+					{$Px}Discussion D on
+						(D.DiscussionID = {$Px}ThanksLog.ObjectID)
+				WHERE
+					({$Px}ThanksLog.ObjectType in ('Discussion', 'Question')) AND
+					(D.DiscussionID is null);",
+			// Delete orphan thanks for Comments
+			'Comments' => "
+				DELETE {$Px}ThanksLog
+				FROM
+					{$Px}ThanksLog
+					LEFT JOIN
+					{$Px}Comment C on
+						(C.CommentID = {$Px}ThanksLog.ObjectID)
+				WHERE
+					({$Px}ThanksLog.ObjectType = 'Comment') AND
+					(C.CommentID is null);",
+		);
+
+		$this->Database->BeginTransaction();
+		try {
+			// Run each cleanup query, storing the number rows by it
+			foreach($CleanupQueries as $ObjectType => $DeleteSQL) {
+				$Result[$ObjectType] = $this->RunDelete($DeleteSQL);
+			}
+
+			$this->EventArguments['CleanupResult'] = $Result;
+			$this->FireEvent('DeleteOrphanThanks');
+			$Result = $this->EventArguments['CleanupResult'];
+
+			$this->Database->CommitTransaction();
+		}
+		catch(Exception $e) {
+			$this->Database->RollbackTransaction();
+			$ErrMsg = sprintf(T('ThanksLogModel_OrphanThanksCleanup_Exception',
+													'Unexpected exception occurred while deleting orphan thanks from ' .
+													'ThanksLog table Exception message: "%s".'),
+												$e->getMessage());
+			$this->Log()->error($ErrMsg);
+			return false;
+		}
+
+		return $Result;
+	}
+
+	public function Cleanup() {
 		$SQL = Gdn::SQL();
 		$Px = $SQL->Database->DatabasePrefix;
 		$SQL->Query("delete t.* from {$Px}ThanksLog t
@@ -268,6 +318,33 @@ class ThanksLogModel extends \Aelia\Model {
 		$SQL->Query("delete t.* from {$Px}ThanksLog t
 			left join {$Px}Discussion d on d.DiscussionID = t.DiscussionID
 			where d.DiscussionID is null and t.DiscussionID > 0");
+	}
+
+	/**
+	 * Updates the thanks count for the specified object.
+	 *
+	 * @param string ObjectType The object type (User, Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @param int Value The amount of thanks to add or subtract.
+	 */
+	protected function UpdateThankedObject($ObjectType, $ObjectID, $Value) {
+		switch($ObjectType) {
+			case 'Question':
+			case 'Discussion':
+				$this->DiscussionModel->UpdateReceivedThanksCount($ObjectID, $Value);
+				break;
+			case 'Comment':
+				$this->CommentModel->UpdateReceivedThanksCount($ObjectID, $Value);
+				break;
+			case 'User':
+				$this->UserModel->UpdateReceivedThanksCount($ObjectID, $Value);
+				break;
+		}
+
+		$this->EventArguments['ObjectType'] = $Object;
+		$this->EventArguments['ObjectID'] = $ObjectID;
+		$this->EventArguments['Value'] = $Value;
+		$this->FireEvent('UpdateThankedObject');
 	}
 
 	/**
@@ -283,9 +360,33 @@ class ThanksLogModel extends \Aelia\Model {
 	 * @see \AeliaBaseModel\Save()
 	 */
   public function Save($FormPostValues, $Settings = false) {
-		$Result = parent::Save($FormPostValues, $Settings);
+		$this->Database->BeginTransaction();
 
-		//var_dump($FormPostValues, $this->ValidationResults());
-		return $Result;
+		try {
+			$SaveResult = parent::Save($FormPostValues, $Settings);
+			if($SaveResult) {
+				// Update the amount of thanks received by the thanked user
+				$this->UpdateThankedObject('User', $FormPostValues['UserID'], self::PLUS_ONE_THANKS);
+				// Update the amount of thanks received by the object on which the "thanks" was placed
+				$this->UpdateThankedObject($FormPostValues['ObjectType'], $FormPostValues['ObjectID'], self::PLUS_ONE_THANKS);
+
+				$this->Database->CommitTransaction();
+			}
+			else {
+				$this->Database->RollbackTransaction();
+			}
+		}
+		catch(Exception $e) {
+			$this->Database->RollbackTransaction();
+			$ErrMsg = sprintf(T('ThanksLogModel_Save_Exception',
+													'Unexpected exception occurred while saving on ThanksLog table. Received arguments ' .
+													'(JSON): "%s". Exception message: "%s".'),
+												json_encode(func_get_args()),
+												$e->getMessage());
+			$this->Log()->error($ErrMsg);
+			return false;
+		}
+
+		return $SaveResult;
 	}
 }
