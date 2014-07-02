@@ -10,10 +10,10 @@ $Form->InputPrefix = 'ThanksLog';
 ?>
 <div class="ThanksWidget">
 	<div class="ReceivedThanks"><?php
-		if((int)$Object->ThanksCount > 0) {
+		if((int)$Object->ReceivedThanksCount > 0) {
 			printf(T('ThankfulPeople_ThanksWidget_ObjectThanksCount',
 							 'Received %d thanks.'),
-						 $Object->ThanksCount);
+						 $Object->ReceivedThanksCount);
 		}
 		else {
 			echo T('ThankfulPeople_ThanksWidget_SayFirstThanks', 'Be the first to say thanks!');
@@ -31,9 +31,20 @@ $Form->InputPrefix = 'ThanksLog';
 			echo $Form->Button(T('ThankfulPeople_ThanksWidget_SayThanks', 'Thanks!'));
 			echo $Form->Close();
 		?></div>
+		<div class="Thanked <?= empty($Object->ThankID) ? 'Hidden' : ''; ?>">
+			<span><?php
+				echo T('ThankfulPeople_ThanksWidget_Thanked', 'Thanked!');
+			?></span>
+		</div>
+
+		<?php
+		// TODO Implement UI to allow revoking a thanks.
+		/*
 		<span class="RevokeThanks <?= empty($Object->ThankID) ? 'Hidden' : ''; ?>"><?php
-			echo Anchor(T('ThankfulPeople_ThanksWidget_RevokeThanks', 'Thanks!'),
+			echo Anchor(T('ThankfulPeople_ThanksWidget_RevokeThanks', 'Revoke thanks'),
 									Url('/plugin/revokethanks', true) . $ActionArguments);
 		?></span>
+		*/
+		?>
 	</div>
 </div>
