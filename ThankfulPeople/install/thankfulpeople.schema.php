@@ -26,13 +26,24 @@ class Schema extends \Aelia\Schema {
 	}
 
 	/**
-	 * Alters the Users table, adding fields to keep track of thanks.
+	 * Adds a "thanks count" field to the specified table.
+	 *
+	 * @param string Table The target table.
 	 */
-	protected function alter_users_table() {
+	protected function add_thanks_count_field($Table) {
 		Gdn::Structure()
-			->Table('User')
-			->Column('ReceivedThankCount', 'int', 0)
+			->Table($Table)
+			->Column('ReceivedThanksCount', 'int', 0)
 			->Set(false, false);
+	}
+
+	/**
+	 * Adds a "thanks counter" field to several tables.
+	 */
+	protected function add_thanks_counter_fields() {
+		$this->add_thanks_count_field('User');
+		$this->add_thanks_count_field('Discussion');
+		$this->add_thanks_count_field('Comment');
 	}
 
 	/**
@@ -115,7 +126,7 @@ class Schema extends \Aelia\Schema {
 	 */
 	protected function CreateObjects() {
 		$this->create_thankslog_table();
-		$this->alter_users_table();
+		$this->add_thanks_counter_fields();
 
 		$this->create_userreceivedthanks_view();
 		$this->create_objectreceivedthanks_view();
