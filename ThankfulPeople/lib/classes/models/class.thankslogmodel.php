@@ -1,12 +1,16 @@
 <?php if (!defined('APPLICATION')) exit();
 
+/**
+ * Model for the ThanksLog table. It implements the logic to manage thanks
+ * received by users and objects (discussions, comments, etc) created by them.
+ */
 class ThanksLogModel extends \Aelia\Model {
 	protected $DiscussionModel;
 	protected $CommentModel;
 	protected $UserModel;
 
-	const PLUS_ONE_THANKS = 1;
-	const MINUS_ONE_THANKS = -1;
+	const PLUS_ONE_THANK = 1;
+	const MINUS_ONE_THANK = -1;
 
 	protected static $TableFields = array(
 		'comment' => 'CommentID',
@@ -326,25 +330,38 @@ class ThanksLogModel extends \Aelia\Model {
 	 * @param string ObjectType The object type (User, Discussion, Comment, etc).
 	 * @param int ObjectID The object ID.
 	 * @param int Value The amount of thanks to add or subtract.
+	 * @return int The amount of thanks received by the object, including the new
+	 * ones just applied.
 	 */
 	protected function UpdateThankedObject($ObjectType, $ObjectID, $Value) {
 		switch($ObjectType) {
 			case 'Question':
 			case 'Discussion':
 				$this->DiscussionModel->UpdateReceivedThanksCount($ObjectID, $Value);
+				$Result = $this->DiscussionModel->GetThanksCount($ObjectID);
+
 				break;
 			case 'Comment':
 				$this->CommentModel->UpdateReceivedThanksCount($ObjectID, $Value);
+				$Result = $this->CommentModel->GetThanksCount($ObjectID);
+
 				break;
 			case 'User':
 				$this->UserModel->UpdateReceivedThanksCount($ObjectID, $Value);
+				$Result = $this->UserModel->GetThanksCount($ObjectID);
+
 				break;
 		}
 
 		$this->EventArguments['ObjectType'] = $Object;
 		$this->EventArguments['ObjectID'] = $ObjectID;
 		$this->EventArguments['Value'] = $Value;
+		$this->EventArguments['ReceivedThanksCount'] = $Result;
 		$this->FireEvent('UpdateThankedObject');
+
+		$Result = $this->EventArguments['ReceivedThanksCount'];
+
+		return $Result;
 	}
 
 	/**
@@ -362,13 +379,18 @@ class ThanksLogModel extends \Aelia\Model {
   public function Save($FormPostValues, $Settings = false) {
 		$this->Database->BeginTransaction();
 
+		$Result = false;
 		try {
 			$SaveResult = parent::Save($FormPostValues, $Settings);
 			if($SaveResult) {
+				$Result = array(
+					'ThanksSaveResult' => $Result,
+				);
+
 				// Update the amount of thanks received by the thanked user
-				$this->UpdateThankedObject('User', $FormPostValues['UserID'], self::PLUS_ONE_THANKS);
+				$Result['UserThanksCount'] = $this->UpdateThankedObject('User', $FormPostValues['UserID'], self::PLUS_ONE_THANK);
 				// Update the amount of thanks received by the object on which the "thanks" was placed
-				$this->UpdateThankedObject($FormPostValues['ObjectType'], $FormPostValues['ObjectID'], self::PLUS_ONE_THANKS);
+				$Result['ObjectThanksCount'] = $this->UpdateThankedObject($FormPostValues['ObjectType'], $FormPostValues['ObjectID'], self::PLUS_ONE_THANK);
 
 				$this->Database->CommitTransaction();
 			}
@@ -387,6 +409,6 @@ class ThanksLogModel extends \Aelia\Model {
 			return false;
 		}
 
-		return $SaveResult;
+		return $Result;
 	}
 }
