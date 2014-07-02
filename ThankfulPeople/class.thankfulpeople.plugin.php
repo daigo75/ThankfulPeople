@@ -35,27 +35,35 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$this->ThanksLogModel = new ThanksLogModel();
 	}
 
+	/**
+	 * Retrieved and returns the list of object types that cannot be thanked, saved
+	 * in the configuration.
+	 */
 	protected function DisallowedObjectTypes() {
 		if(empty($this->_DisallowedObjectTypes)) {
 			$this->_DisallowedObjectTypes = C('Plugins.ThankfulPeople.DisallowedObjectTypes', null);
 		}
-
 		return $this->_DisallowedObjectTypes;
 	}
 
+	/**
+	 * Retrieved and returns the list of object types that can be thanked, saved
+	 * in the configuration.
+	 */
 	protected function AllowedObjectTypes() {
 		if(empty($this->_AllowedObjectTypes)) {
 			$this->_AllowedObjectTypes = C('Plugins.ThankfulPeople.AllowedObjectTypes', null);
 		}
-
 		return $this->_AllowedObjectTypes;
 	}
 
+	/**
+	 * Retrieved and returns the flag that indicates if thanks can be revoked.
+	 */
 	protected function AllowRevokingThanks() {
 		if(empty($this->_AllowRevokingThanks)) {
 			$this->_AllowRevokingThanks = C('Plugins.ThankfulPeople.AllowRevoke', false);
 		}
-
 		return $this->_AllowRevokingThanks;
 	}
 
@@ -205,19 +213,40 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$Sender->Render();
 	}
 
-	public function DiscussionController_Render_Before($Sender) {
+	/**
+	 * Loads the CSS files used by the plugin.
+	 */
+	protected function LoadCssFiles($Sender) {
 		// If not rendering a page or a view, do nothing
-		if(!($Sender->DeliveryType() == DELIVERY_TYPE_ALL && $Sender->SyndicationMethod == SYNDICATION_NONE)) {
+		if(($Sender->DeliveryType() != DELIVERY_TYPE_ALL) || ($Sender->SyndicationMethod != SYNDICATION_NONE)) {
 			return;
 		}
-
-		$Sender->AddJsFile('jquery.expander.js');
-		$Sender->AddCssFile('plugins/ThankfulPeople/design/thankfulpeople.css');
-		$Sender->AddJsFile('plugins/ThankfulPeople/js/thankfulpeople.functions.js');
-
-		$Sender->AddDefinition('ExpandThankList', T('ExpandThankList'));
-		$Sender->AddDefinition('CollapseThankList', T('CollapseThankList'));
+		$Sender->AddCssFile('thankfulpeople.css', 'plugins/ThankfulPeople/design');
 	}
+
+	/**
+	 * Loads the JavaScript files used by the plugin.
+	 */
+	protected function LoadJsFiles($Sender) {
+		// If not rendering a page or a view, do nothing
+		if(($Sender->DeliveryType() != DELIVERY_TYPE_ALL) || ($Sender->SyndicationMethod != SYNDICATION_NONE)) {
+			return;
+		}
+		$Sender->AddJsFile('thankfulpeople.js', 'plugins/ThankfulPeople/js');
+	}
+
+	public function DiscussionController_Render_Before($Sender) {
+		$this->LoadCssFiles($Sender);
+		$this->LoadJsFiles($Sender);
+
+		//$Sender->AddDefinition('ExpandThankList', T('ExpandThankList'));
+		//$Sender->AddDefinition('CollapseThankList', T('CollapseThankList'));
+	}
+
+	public function ProfileController_Render_Before($Sender) {
+		$this->LoadCssFiles($Sender);
+	}
+
 
 	/**
 	 * Determines if thanks can be sent for specific object type.
@@ -378,21 +407,16 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	public function UserInfoModule_OnBasicInfo_Handler($Sender) {
-		echo Wrap(T('UserInfoModule.Thanked'), 'dt', array('class' => 'ReceivedThankCount'));
-		echo Wrap($Sender->User->ReceivedThankCount, 'dd', array('class' => 'ReceivedThankCount'));
-	}
-
-	public function ProfileController_Render_Before($Sender) {
-		if (!($Sender->DeliveryType() == DELIVERY_TYPE_ALL && $Sender->SyndicationMethod == SYNDICATION_NONE)) return;
-		$Sender->AddCssFile('plugins/ThankfulPeople/design/thankfulpeople.css');
+		echo Wrap(T('UserInfoModule.Thanked'), 'dt', array('class' => 'ReceivedThanksCount'));
+		echo Wrap($Sender->User->ReceivedThanksCount, 'dd', array('class' => 'ReceivedThanksCount'));
 	}
 
 	public function ProfileController_AddProfileTabs_Handler($Sender) {
-		$ReceivedThankCount = GetValue('ReceivedThankCount', $Sender->User);
-		if ($ReceivedThankCount > 0) {
+		$ReceivedThanksCount = GetValue('ReceivedThanksCount', $Sender->User);
+		if ($ReceivedThanksCount > 0) {
 			$UserReference = ArrayValue(0, $Sender->RequestArgs, '');
 			$Username = ArrayValue(1, $Sender->RequestArgs, '');
-			$Thanked = T('Profile.Tab.Thanked', T('Thanked')).'<span>'.$ReceivedThankCount.'</span>';
+			$Thanked = T('Profile.Tab.Thanked', T('Thanked')).'<span>'.$ReceivedThanksCount.'</span>';
 			$Sender->AddProfileTab($Thanked, 'profile/receivedthanks/'.$UserReference.'/'.$Username, 'Thanked');
 		}
 	}
@@ -403,8 +427,8 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$Sender->GetUserInfo($UserReference, $Username);
 		$ViewingUserID = $Sender->User->UserID;
 
-		$ReceivedThankCount = $Sender->User->ReceivedThankCount;
-		$Thanked = T('Profile.Tab.Thanked', T('Thanked')).'<span>'.$ReceivedThankCount.'</span>';
+		$ReceivedThanksCount = $Sender->User->ReceivedThanksCount;
+		$Thanked = T('Profile.Tab.Thanked', T('Thanked')).'<span>'.$ReceivedThanksCount.'</span>';
 		$View = $this->GetView('receivedthanks.php');
 		$Sender->SetTabView($Thanked, $View);
 		$ThanksLogModel = new ThanksLogModel();
@@ -451,8 +475,8 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	 * Recalculates the thanks received by users.
 	 */
 	protected function Recalculate_Thanks() {
-		ThanksLogModel::CleanUp();
-		ThanksLogModel::RecalculateUserReceivedThankCount();
+		$this->ThanksModel->Cleanup();
+		return $this->ThanksModel->RecalculateUserReceivedThanksCount();
 	}
 
 	/**
