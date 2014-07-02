@@ -87,7 +87,7 @@ class Schema extends \Aelia\Schema {
 		$Sql = "
 			SELECT
 				TL.`UserID`
-				,TL.`ObjectType`
+				-- ,TL.`ObjectType`
 				-- ,TL.`ObjectID`
 				,COUNT(TL.`ThankID`) AS ThanksCount
 			FROM
@@ -97,7 +97,7 @@ class Schema extends \Aelia\Schema {
 				-- 	(U.UserID = TL.UserID)
 			GROUP BY
 				TL.`UserID`
-				,TL.`ObjectType`
+				-- ,TL.`ObjectType`
 		";
 		$this->Construct->View('v_TP_UserReceivedThanks', $Sql);
 	}
