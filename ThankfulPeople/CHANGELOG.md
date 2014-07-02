@@ -4,6 +4,7 @@
 * Implemented Ajax functions to send the "thanks".
 * Added fields and methods to retrieve the amount of thanks received by Discussions, Comments and Users.
 * Added extended DiscussionModel, CommentModel and UserModel.
+* Added optional auto-rendering of elements, such as modules.
 
 ####1.1.0.140701
 * Redesigned main plugin functions:
