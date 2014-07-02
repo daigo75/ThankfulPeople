@@ -4,7 +4,7 @@ $PluginInfo['ThankfulPeople'] = array(
 	'Name' => 'Thankful People',
 	'Description' => 'Adds the possibility giving "thanks" to users, to express their appreciation for a good contribution (discussion, question, comment, or anything else).',
 	'Version' => '1.2.0.140702',
-	'Author' => 'Diego Zanella (original by Jerl Liandri)',
+	'Author' => 'Diego Zanella',
 	'AuthorUrl' => 'http://www.aelia.co',
 	'RequiredApplications' => array(
 		'Vanilla' => '>=2.0.18'
