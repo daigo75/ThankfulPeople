@@ -4,6 +4,10 @@ if (!defined('APPLICATION')) exit();
 
 use Gdn;
 
+/**
+ * Extends the base CommentModel by adding functions to handle the thanks received
+ * by a comment.
+ */
 class CommentModel extends \CommentModel {
 	/**
 	 * Updates the amount of thanks received by a Comment.

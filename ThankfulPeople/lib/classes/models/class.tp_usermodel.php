@@ -4,6 +4,10 @@ if (!defined('APPLICATION')) exit();
 
 use Gdn;
 
+/**
+ * Extends the base UserModel by adding functions to handle the thanks received
+ * by a user.
+ */
 class UserModel extends \UserModel {
 	/**
 	 * Updates the amount of thanks received by a User.

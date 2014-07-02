@@ -4,6 +4,10 @@ if (!defined('APPLICATION')) exit();
 
 use Gdn;
 
+/**
+ * Extends the base DiscussionModel by adding functions to handle the thanks received
+ * by a discussion.
+ */
 class DiscussionModel extends \DiscussionModel {
 	/**
 	 * Updates the amount of thanks received by a Discussion.
