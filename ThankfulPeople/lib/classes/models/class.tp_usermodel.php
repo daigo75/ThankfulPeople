@@ -60,4 +60,19 @@ class UserModel extends \UserModel {
 		// Return the amount of affected rows
 		return $Result->PDOStatement()->rowCount();
 	}
+
+	/**
+	 * Returns the amount of thanks received by a User.
+	 *
+	 * @param int UserID The User ID.
+	 * @return int
+	 */
+	public function GetThanksCount($UserID) {
+		return $this->SQL
+			->Select('U.ReceivedThanksCount')
+			->From('User U')
+			->Where('U.UserID', $UserID)
+			->Get()
+			->Value('ReceivedThanksCount');
+	}
 }

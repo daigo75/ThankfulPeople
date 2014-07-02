@@ -30,4 +30,19 @@ class DiscussionModel extends \DiscussionModel {
 			->Where('DiscussionID', $DiscussionID)
 			->Put();
 	}
+
+	/**
+	 * Returns the amount of thanks received by a discussion.
+	 *
+	 * @param int DiscussionID The discussion ID.
+	 * @return int
+	 */
+	public function GetThanksCount($DiscussionID) {
+		return $this->SQL
+			->Select('D.ReceivedThanksCount')
+			->From('Discussion D')
+			->Where('D.DiscussionID', $DiscussionID)
+			->Get()
+			->Value('ReceivedThanksCount');
+	}
 }

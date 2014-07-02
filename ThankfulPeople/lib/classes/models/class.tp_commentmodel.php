@@ -31,4 +31,19 @@ class CommentModel extends \CommentModel {
 			->Where('CommentID', $CommentID)
 			->Put();
 	}
+
+	/**
+	 * Returns the amount of thanks received by a comment.
+	 *
+	 * @param int DiscussionID The discussion ID.
+	 * @return int
+	 */
+	public function GetThanksCount($CommentID) {
+		return $this->SQL
+			->Select('C.ReceivedThanksCount')
+			->From('Comment C')
+			->Where('C.CommentID', $CommentID)
+			->Get()
+			->Value('ReceivedThanksCount');
+	}
 }
