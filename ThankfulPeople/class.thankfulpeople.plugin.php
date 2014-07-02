@@ -3,7 +3,7 @@
 $PluginInfo['ThankfulPeople'] = array(
 	'Name' => 'Thankful People',
 	'Description' => 'Remake of classic Vanilla One extension. Instead of having people post appreciation and thankyou notes they can simply click the thanks link and have their username appear under that post (MySchizoBuddy).',
-	'Version' => '1.1.0.140701',
+	'Version' => '1.2.0.140702',
 	'Author' => 'Diego Zanella (original by Jerl Liandri)',
 	'AuthorUrl' => 'http://www.aelia.co',
 	'RequiredApplications' => array(
@@ -198,6 +198,7 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		if($Result == Definitions::RES_OK) {
 			// TODO Implement saving of the thanks
 			$SaveResult = $Sender->Form->Save();
+			$Sender->SetData('ResultData', $SaveResult);
 		}
 
 		// If Delivery Type = ALL, redirect to the specified target, defaulting to
@@ -208,8 +209,10 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		}
 
 		// TODO Get all the thanks received by the object and set it to the controller's data
-		$ThankfulPeopleDataSet = $ThanksLogModel->GetThankfulPeople($ObjectType, $ObjectID);
-		$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), false));
+		//$ThankfulPeopleDataSet = $ThanksLogModel->GetThankfulPeople($ObjectType, $ObjectID);
+		//$Sender->SetData('NewThankedByBox', self::ThankedByBox($ThankfulPeopleDataSet->Result(), false));
+		$Sender->SetData('Result', $Result);
+
 		$Sender->Render();
 	}
 

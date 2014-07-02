@@ -1,33 +1,39 @@
 <?php if (!defined('APPLICATION')) exit();
 
+$Sender = $this->_Sender;
+$Sender->AddDefinition('ThankfulPeople_ThanksModule_Thanking', T('ThankfulPeople_ThanksModule_Thanking', 'Thanking...'));
+$Sender->AddDefinition('ThankfulPeople_ThanksModule_ObjectThanksCount', T('ThankfulPeople_ThanksWidget_ObjectThanksCount', 'Received thanks:'));
+
 $ObjectType = $this->Data('ObjectType');
 $ObjectID = $this->Data('ObjectID');
 $Object = $this->Data('Object');
+$ObjectSignature = md5($ObjectType . $ObjectID);
 
-//$ActionArguments .= '/' . $ObjectType . '/' . $ObjectID . '?Target=' .
+//$ActionArguments = '?DeliveryMethod=JSON&DeliveryType=DATA';
 $Form = new \Aelia\Form();
 $Form->InputPrefix = 'ThanksLog';
 ?>
-<div class="ThanksWidget">
-	<div class="ReceivedThanks"><?php
-		if((int)$Object->ReceivedThanksCount > 0) {
-			printf(T('ThankfulPeople_ThanksWidget_ObjectThanksCount',
-							 'Received %d thanks.'),
-						 $Object->ReceivedThanksCount);
-		}
-		else {
-			echo T('ThankfulPeople_ThanksWidget_SayFirstThanks', 'Be the first to say thanks!');
-		}
-	?></div>
-	<div class="Action">
+<div id="<?= $ObjectSignature ?>" class="ThanksWidget">
+	<div class="ReceivedThanks">
+		<span><?php
+			if((int)$Object->ReceivedThanksCount > 0) {
+				echo T('ThankfulPeople_ThanksWidget_ObjectThanksCount', 'Received thanks:') . ' ' . $Object->ReceivedThanksCount;
+			}
+			else {
+				echo T('ThankfulPeople_ThanksWidget_SayFirstThanks', 'Be the first to say thanks!');
+			}
+		?></span>
+	</div>
+	<div class="Actions">
 		<div class="SayThanks <?= !empty($Object->ThankID) ? 'Hidden' : ''; ?>"><?php
 			echo $Form->Open(array(
-				'action' => Url('/plugin/thankfulpeople/givethanks', true) . $ActionArguments,
+				'object-signature' => $ObjectSignature,
+				'action' => Url('/plugin/thankfulpeople/givethanks', true),
 			));
 			echo $Form->Hidden('ObjectType', array('value' => $ObjectType));
 			echo $Form->Hidden('ObjectID', array('value' => $ObjectID));
 			echo $Form->Hidden('UserID', array('value' => $Object->InsertUserID));
-			echo $Form->Hidden('Target', array('value' => $this->_Sender->SelfUrl));
+			echo $Form->Hidden('Target', array('value' => $Sender->SelfUrl));
 			echo $Form->Button(T('ThankfulPeople_ThanksWidget_SayThanks', 'Thanks!'));
 			echo $Form->Close();
 		?></div>

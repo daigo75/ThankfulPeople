@@ -12,6 +12,13 @@ class MessageThanksModule extends \Aelia\Module {
 		return 'Content';
 	}
 
+	/**
+	 * Sets the parameters used to render the module.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @param object Object The object for which the module should be rendered.
+	 */
 	public function SetParams($ObjectType, $ObjectID, $Object) {
 		if(!is_object($Object)) {
 			$ErrMsg = sprintf(T('Argument "Object" must be either a discussion or a comment object. ' .

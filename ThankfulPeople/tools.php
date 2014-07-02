@@ -11,7 +11,7 @@ if ($Argument == 'structure') {
 	$ThankfulPeoplePlugin->Structure($Drop);
 }
 elseif ($Argument == 'calc') {
-	ThanksLogModel::RecalculateUserReceivedThankCount();
+	ThanksLogModel::RecalculateUserReceivedThanksCount();
 	//ThanksLogModel::RecalculateCommentThankCount();
 	//ThanksLogModel::RecalculateDiscussionThankCount();
 } elseif ($Argument == 'garbage') {
