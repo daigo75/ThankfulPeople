@@ -57,7 +57,7 @@ $(document).ready(function(){
 		var $SubmitButtonLabel = $SubmitButton.val();
 		$SubmitButton
 			.attr('disabled', true)
-			.val(gdn.definition('ThankfulPeople_ThanksModule_Thanking', 'Thanking...'));
+			.val(gdn.definition('ThankfulPeople_ThanksWidget_Thanking', 'Thanking...'));
 
 		var PostValues = $Form.serialize();
 		PostValues  += '&DeliveryMethod=JSON&DeliveryType=DATA';
