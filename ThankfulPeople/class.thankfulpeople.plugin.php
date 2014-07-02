@@ -36,6 +36,15 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	/**
+	 * Returns the instance of the plugin.
+	 *
+	 * @param AeliaFoundationClasses
+	 */
+	public static function Instance() {
+		return Gdn::PluginManager()->GetPluginInstance(get_class($this));
+	}
+
+	/**
 	 * Retrieved and returns the list of object types that cannot be thanked, saved
 	 * in the configuration.
 	 */
@@ -76,12 +85,12 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	 */
 	protected function GetObjectID($ObjectType, $Object) {
 		$ObjectID = null;
-		switch($ObjectType) {
-			case 'Question':
-			case 'Discussion':
+		switch(strtolower($ObjectType)) {
+			case 'question':
+			case 'discussion':
 				$ObjectID = $Object->DiscussionID;
 				break;
-			case 'Comment':
+			case 'comment':
 				$ObjectID = $Object->CommentID;
 				break;
 		}
@@ -303,6 +312,48 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	/**
+	 * Renders the Message Thanks Module, which displays the amount of thanks
+	 * received by an object and a button/action to thank for it.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param object Object The object itself.
+	 */
+	public function RenderMessageThanksModule($Sender, $ObjectType, $Object) {
+		$EventArguments = &$Sender->EventArguments;
+		//$Object = $EventArguments['Object'];
+		//$ObjectType = empty($Object->Type) ? $EventArguments['Type'] : $Object->Type;
+
+		if(!Gdn::Session()->IsValid()) {
+			return;
+		}
+
+		// If thanks are not allowed for this object, move on
+		if(!$this->IsThankable($ObjectType)) {
+			return;
+		}
+
+		// Cannot send a "thanks" for unsupported object types
+		$ObjectID = $this->GetObjectID($ObjectType, $Object);
+		if(empty($ObjectID)) {
+			return;
+		}
+
+		// Debug
+		//var_dump($Object);
+
+		$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
+		// Only user with proper permissions can send a thanks to their own objects
+		if(($Object->InsertUserID == $SessionUserID) && !Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn')) {
+			return;
+		}
+
+		$MessageThanksModule = new MessageThanksModule($Sender);
+		$MessageThanksModule->SetParams($ObjectType, $ObjectID, $Object);
+
+		echo $MessageThanksModule->ToString();
+	}
+
+	/**
 	 * Handler of Event DiscussionModel::BeforeGet.
 	 * Alter SQL of Discussions Model to add "thanks" information.
 	 *
@@ -343,60 +394,8 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	}
 
 	public function DiscussionController_CommentOptions_Handler($Sender) {
-		$EventArguments = &$Sender->EventArguments;
-		$Object = $EventArguments['Object'];
-
-		$ObjectType = empty($Object->Type) ? $EventArguments['Type'] : $Object->Type;
-
-		if(!Gdn::Session()->IsValid()) {
-			return;
-		}
-
-		// If thanks are not allowed for this object, move on
-		if(!$this->IsThankable($ObjectType)) {
-			return;
-		}
-
-		// Cannot send a "thanks" for unsupported object types
-		$ObjectID = $this->GetObjectID($ObjectType, $Object);
-		if(empty($ObjectID)) {
-			return;
-		}
-
-		// Debug
-		//var_dump($Object);
-
-		$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
-		// Only user with proper permissions can send a thanks to their own objects
-		if(($Object->InsertUserID == $SessionUserID) && !Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn')) {
-			return;
-		}
-
-		$MessageThanksModule = new MessageThanksModule($Sender);
-		$MessageThanksModule->SetParams($ObjectType, $ObjectID, $Object);
-
-		echo $MessageThanksModule->ToString();
-	}
-
-	public function DiscussionController_AfterCommentBody_Handler($Sender) {
-		return;
-
-		$Object = $Sender->EventArguments['Object'];
-		$Type = $Sender->EventArguments['Type'];
-		$ThankedByBox = false;
-		switch ($Type) {
-			case 'Comment': {
-				$ThankedByCollection =& $this->CommentGroup[$Object->CommentID];
-				if ($ThankedByCollection) $ThankedByBox = self::ThankedByBox($ThankedByCollection);
-				break;
-			}
-			case 'Discussion': {
-				if (count($this->DiscussionData) > 0) $ThankedByBox = self::ThankedByBox($this->DiscussionData);
-				break;
-			}
-			default: throw new Exception('What...');
-		}
-		if ($ThankedByBox !== false) echo $ThankedByBox;
+		// TODO Determine if it's worth displaying the Thanks Module automatically
+		//$this->RenderMesssageThanksModule($Sender);
 	}
 
 	public static function ThankedByBox($Collection, $Wrap = True) {
