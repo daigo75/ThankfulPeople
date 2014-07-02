@@ -47,12 +47,12 @@ class UserModel extends \UserModel {
 				{$Px}v_TP_UserReceivedThanks URT ON
 					(URT.UserID = U.UserID)
 			SET
-				(U.ReceivedThanksCount = URT.ThanksCount)
+				U.ReceivedThanksCount = URT.ThanksCount
 		";
 
 		$UserID = (int)$UserID;
 		if($UserID > 0) {
-			$UpdateSQL .= "WHERE (U.UserID = $UserID)";
+			$UpdateSQL .= "\nWHERE (U.UserID = $UserID)";
 		}
 
 		$Result = $this->SQL->Query($UpdateSQL, null);
