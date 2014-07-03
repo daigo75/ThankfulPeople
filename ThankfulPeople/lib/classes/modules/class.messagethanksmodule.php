@@ -53,6 +53,15 @@ class MessageThanksModule extends \Aelia\Module {
 			}
 		}
 
+		$UserCanThank = true;
+		$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
+		// Only user with proper permissions can send a thanks to their own objects
+		if(!empty($Object->ThankID) ||
+			 (($Object->InsertUserID == $SessionUserID) && !Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn'))) {
+			$UserCanThank = false;
+		}
+
+		$this->SetData('UserCanThank', $UserCanThank);
 		include $this->_Sender->FetchViewLocation('MessageThanksModule', 'modules', 'plugins/ThankfulPeople');
 	}
 }
