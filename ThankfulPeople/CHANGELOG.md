@@ -1,5 +1,8 @@
 # Thankful People plugin for Vanilla Forums 2.x
 
+####1.2.1.140703
+* Corrected references to language definitions.
+
 ####1.2.0.140702
 * Implemented Ajax functions to send the "thanks".
 * Added fields and methods to retrieve the amount of thanks received by Discussions, Comments and Users.

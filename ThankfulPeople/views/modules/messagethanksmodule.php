@@ -1,8 +1,8 @@
 <?php if (!defined('APPLICATION')) exit();
 
 $Sender = $this->_Sender;
-$Sender->AddDefinition('ThankfulPeople_ThanksModule_Thanking', T('ThankfulPeople_ThanksModule_Thanking', 'Thanking...'));
-$Sender->AddDefinition('ThankfulPeople_ThanksModule_ObjectThanksCount', T('ThankfulPeople_ThanksWidget_ObjectThanksCount', 'Received thanks:'));
+$Sender->AddDefinition('ThankfulPeople_ThanksWidget_Thanking', T('ThankfulPeople_ThanksWidget_Thanking', 'Thanking...'));
+$Sender->AddDefinition('ThankfulPeople_ThanksWidget_ObjectThanksCount', T('ThankfulPeople_ThanksWidget_ObjectThanksCount', 'Received thanks:'));
 
 $ObjectType = $this->Data('ObjectType');
 $ObjectID = $this->Data('ObjectID');
