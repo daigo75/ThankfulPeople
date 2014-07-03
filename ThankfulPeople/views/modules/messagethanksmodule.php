@@ -9,6 +9,14 @@ $ObjectID = $this->Data('ObjectID');
 $Object = $this->Data('Object');
 $ObjectSignature = md5($ObjectType . $ObjectID);
 
+$SayThanksCssClass = '';
+$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
+// Only user with proper permissions can send a thanks to their own objects
+if(!empty($Object->ThankID) ||
+	 (($Object->InsertUserID == $SessionUserID) && !Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn'))) {
+	$SayThanksCssClass = 'Hidden';
+}
+
 //$ActionArguments = '?DeliveryMethod=JSON&DeliveryType=DATA';
 $Form = new \Aelia\Form();
 $Form->InputPrefix = 'ThanksLog';
@@ -25,7 +33,7 @@ $Form->InputPrefix = 'ThanksLog';
 		?></span>
 	</div>
 	<div class="Actions">
-		<div class="SayThanks <?= !empty($Object->ThankID) ? 'Hidden' : ''; ?>"><?php
+		<div class="SayThanks <?= $SayThanksCssClass ?>"><?php
 			echo $Form->Open(array(
 				'object-signature' => $ObjectSignature,
 				'action' => Url('/plugin/thankfulpeople/givethanks', true),

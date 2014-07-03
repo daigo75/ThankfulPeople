@@ -353,12 +353,6 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		// Debug
 		//var_dump($Object);
 
-		$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
-		// Only user with proper permissions can send a thanks to their own objects
-		if(($Object->InsertUserID == $SessionUserID) && !Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn')) {
-			return;
-		}
-
 		$MessageThanksModule = new MessageThanksModule($Sender);
 		$MessageThanksModule->SetParams($ObjectType, $ObjectID, $Object);
 

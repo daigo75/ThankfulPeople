@@ -2,6 +2,8 @@
 
 ####1.2.1.140703
 * Corrected references to language definitions.
+* Corrected display of Message Thanks module:
+	* Module is now displaying the number of thanks received by a discussion/comment when its owner is looking at it.
 
 ####1.2.0.140702
 * Implemented Ajax functions to send the "thanks".
