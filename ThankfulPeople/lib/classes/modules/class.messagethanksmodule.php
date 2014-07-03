@@ -53,6 +53,7 @@ class MessageThanksModule extends \Aelia\Module {
 			}
 		}
 
+		$Object = $this->Data('Object');
 		$UserCanThank = true;
 		$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
 		// Only user with proper permissions can send a thanks to their own objects
