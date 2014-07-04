@@ -1,5 +1,8 @@
 # Thankful People plugin for Vanilla Forums 2.x
 
+####1.2.2.140704
+* Removed unneeded permission check.
+
 ####1.2.1.140703
 * Corrected references to language definitions.
 * Corrected display of Message Thanks module:

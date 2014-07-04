@@ -3,7 +3,7 @@
 $PluginInfo['ThankfulPeople'] = array(
 	'Name' => 'Thankful People',
 	'Description' => 'Adds the possibility giving "thanks" to users, to express their appreciation for a good contribution (discussion, question, comment, or anything else).',
-	'Version' => '1.2.1.140703',
+	'Version' => '1.2.2.140704',
 	'Author' => 'Diego Zanella',
 	'AuthorUrl' => 'http://www.aelia.co',
 	'RequiredApplications' => array(
@@ -156,7 +156,6 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	* @param $Sender Sending controller instance
 	*/
 	public function PluginController_ThankfulPeople_Create($Sender) {
-		$Sender->Permission('Vanilla.Settings.Manage');
 		$Sender->Title('Thankful People');
 		$Sender->AddSideMenu('plugin/thankfulpeople');
 
