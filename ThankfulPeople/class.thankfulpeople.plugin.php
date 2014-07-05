@@ -3,7 +3,7 @@
 $PluginInfo['ThankfulPeople'] = array(
 	'Name' => 'Thankful People',
 	'Description' => 'Adds the possibility giving "thanks" to users, to express their appreciation for a good contribution (discussion, question, comment, or anything else).',
-	'Version' => '1.2.2.140704',
+	'Version' => '1.2.3.140704',
 	'Author' => 'Diego Zanella',
 	'AuthorUrl' => 'http://www.aelia.co',
 	'RequiredApplications' => array(
@@ -486,8 +486,8 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	 * Recalculates the thanks received by users.
 	 */
 	protected function Recalculate_Thanks() {
-		$this->ThanksModel->Cleanup();
-		return $this->ThanksModel->RecalculateUserReceivedThanksCount();
+		$this->ThanksLogModel->Cleanup();
+		return $this->ThanksLogModel->RecalculateUserReceivedThanksCount();
 	}
 
 	/**

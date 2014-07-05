@@ -1,5 +1,8 @@
 # Thankful People plugin for Vanilla Forums 2.x
 
+####1.2.3.140704
+* Fixed reference to ThanksLogModel in main plugin class.
+
 ####1.2.2.140704
 * Removed unneeded permission check.
 
