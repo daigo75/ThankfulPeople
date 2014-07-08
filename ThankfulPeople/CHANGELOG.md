@@ -5,6 +5,7 @@
 	* MessageThanksModule now always displays the thanks received by an object.
 	* Permission checks are now more fine grained, checking if a user already thanked for an object and if the object is his own.
 	* Strenghened permission checks in ThankfulPeoplePlugin::Controller_GiveThanks().
+	* Ensured that Thanks are always visible to anyone, including guests. Ref. https://app.asana.com/0/8904858729142/14493217456788
 
 ####1.2.3.140704
 * Fixed reference to ThanksLogModel in main plugin class.
