@@ -56,10 +56,19 @@ class MessageThanksModule extends \Aelia\Module {
 		$Object = $this->Data('Object');
 		$UserCanThank = true;
 		$SessionUserID = Gdn::Session()->IsValid() ? Gdn::Session()->UserID : null;
-		// Only user with proper permissions can send a thanks to their own objects
-		if(!empty($Object->ThankID) ||
-			 (($Object->InsertUserID == $SessionUserID) && !Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn'))) {
+
+		if(!empty($Object->ThankID)) {
+			// Objects who already got a "thanks" from the user cannot get another one
 			$UserCanThank = false;
+		}
+		else {
+			// Only user with proper permissions can send a thanks
+			$UserCanThank = Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.Send');
+
+			// Additional permissions are required to send a thanks to one's own objects
+			if($Object->InsertUserID == $SessionUserID) {
+				$UserCanThank = $UserCanThank && Gdn::Session()->CheckPermission('ThankfulPeople.Thanks.SendToOwn');
+			}
 		}
 
 		$this->SetData('UserCanThank', $UserCanThank);

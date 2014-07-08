@@ -171,9 +171,6 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 	 */
 	public function Controller_GiveThanks($Sender) {
 		$Session = Gdn::Session();
-		if(!$Session->IsValid()) {
-			return;
-		}
 
 		// Check that the user has the permission to say "thanks"
 		$Sender->Permission('ThankfulPeople.Thanks.Send');
@@ -181,6 +178,8 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 
 		// Only authenticated users can post a Thanks
 		if(!$Sender->Form->AuthenticatedPostback()) {
+			// Invalid request
+			$this->StatusCode(400);
 			return;
 		}
 		$Result = Definitions::RES_OK;
@@ -188,6 +187,11 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$ObjectType = $Sender->Form->GetFormValue('ObjectType');
 		$ObjectID = $Sender->Form->GetFormValue('ObjectID');
 		$ObjectInsertUserID = $this->ThanksLogModel->GetObjectInsertUserID($ObjectType, $ObjectID);
+
+		// Additional permissions are required to send a thanks to one's own objects
+		if($ObjectInsertUserID == $SessionUserID) {
+			$Sender->Permission('ThankfulPeople.Thanks.SendToOwn');
+		}
 
 		if(($ObjectInsertUserID == $Session->UserID) && !$Session->CheckPermission('ThankfulPeople.Thanks.SendToOwn')) {
 			$Sender->SetData('Error', T('ThankfulPeople_Thanks_CannotThankYourOwn',
@@ -333,10 +337,6 @@ class ThankfulPeoplePlugin extends Gdn_Plugin {
 		$EventArguments = &$Sender->EventArguments;
 		//$Object = $EventArguments['Object'];
 		//$ObjectType = empty($Object->Type) ? $EventArguments['Type'] : $Object->Type;
-
-		if(!Gdn::Session()->IsValid()) {
-			return;
-		}
 
 		// If thanks are not allowed for this object, move on
 		if(!$this->IsThankable($ObjectType)) {

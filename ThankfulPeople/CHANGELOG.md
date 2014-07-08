@@ -1,5 +1,11 @@
 # Thankful People plugin for Vanilla Forums 2.x
 
+####1.2.4.140708
+* Improved permission checking on sending thanks:
+	* MessageThanksModule now always displays the thanks received by an object.
+	* Permission checks are now more fine grained, checking if a user already thanked for an object and if the object is his own.
+	* Strenghened permission checks in ThankfulPeoplePlugin::Controller_GiveThanks().
+
 ####1.2.3.140704
 * Fixed reference to ThanksLogModel in main plugin class.
 
