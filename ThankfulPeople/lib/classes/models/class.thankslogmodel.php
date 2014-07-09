@@ -51,36 +51,50 @@ class ThanksLogModel extends \Aelia\Model {
 		return $Result;
 	}
 
-	public function Get($Where = false, $Offset = false, $Limit = false) {
+	/**
+	 * Retrieves an entry from the Thanks Log, using the details of the thanked
+	 * object and the ID of the thanking user.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @param string SenderUserID The ID of the user who sent the Thanks.
+	 * @return object|false
+	 */
+	public function GetByObjectKey($ObjectType, $ObjectID, $SenderUserID) {
+		$Wheres = array(
+			'ObjectType' => $ObjectType,
+			'ObjectID' => $ObjectID,
+			'SenderUserID' => $SenderUserID,
+		);
+		return $this->Get($Wheres)->FirstRow();
+	}
 
-		$bCountQuery = GetValue('bCountQuery', $Where, false, True);
-		$this->EventArguments['WhereOptions'] = $Where;
-		$this->EventArguments['bCountQuery'] = $bCountQuery;
+	/**
+	 * Retrieves an entry from the Thanks Log, using the ThankID as the search
+	 * key.
+	 *
+	 * @param int ThankID The thank ID.
+	 * @return object|false
+	 */
+	public function GetByID($ThankID) {
+		$Wheres = array(
+			'ThankID' => $ThankID,
+		);
+		return $this->Get($Wheres)->FirstRow();
+	}
 
-		if ($bCountQuery) {
-			$this->SQL->Select('*', 'count', 'RowCount');
-			$Offset = $Limit = false;
-		}
-		if ($CommentData = GetValue('Comments', $Where, false, True)) {
-			if ($CommentData instanceof Gdn_DataSet) $CommentData = ConsolidateArrayValuesByKey($CommentData->Result(), 'CommentID');
-			if (!is_array($CommentData)) trigger_error('Unexpected type: '.gettype($CommentData), E_USER_ERROR);
-			$this->SQL
-				->WhereIn('t.CommentID', $CommentData);
-		}
-		if ($WithDiscussionID = GetValue('WithDiscussionID', $Where, false, True)) {
-			$this->SQL->OrWhere('t.DiscussionID', $WithDiscussionID);
-		}
-
-		$this->FireEvent('BeforeGet');
-
-		// Final where and return dataset or row count
-		if (is_array($Where)) $this->SQL->Where($Where);
-		$Result = $this->SQL
-			->From('ThanksLog t')
-			->Limit($Limit, $Offset)
-			->Get();
-		if ($bCountQuery) $Result = $Result->FirstRow()->RowCount;
-		return $Result;
+	/**
+	 * Retrieves data from the thanks log table.
+	 *
+	 * @param array Wheres A set of where clauses to filter the results.
+	 * @param int Offset The offset do determine from which row to take the data.
+	 * @param int Limit The maximum amount of rows to return.
+	 * @return Gdn_DataSet|false
+	 */
+	public function Get($Wheres = array(), $Offset = false, $Limit = false) {
+		// TODO Refactor method so that this call to parent is no longer needed.
+		// Ensure that callers are aware of the new method signature
+		return parent::Get($Wheres, null, $Limit, $Offset);
 	}
 
 	public static function GetPrimaryKeyField($Name) { // Type, Table name
@@ -94,6 +108,13 @@ class ThanksLogModel extends \Aelia\Model {
 		return ArrayValue($Name, self::$TableNames, ucfirst($Name));
 	}
 
+	/**
+	 * Retrieves the User ID of the person who sent a thanks.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @return int|null
+	 */
 	public function GetObjectInsertUserID($ObjectType, $ObjectID) {
 		$this->EventArguments['ObjectType'] = $ObjectType;
 		$this->EventArguments['ObjectID'] = $ObjectID;
@@ -129,7 +150,18 @@ class ThanksLogModel extends \Aelia\Model {
 	}
 
 	/**
-	 * Deletes an entry from the Thanks Log.
+	 * Deletes a "thank".
+	 *
+	 * @param int ThankID The thank ID.
+	 * @return int
+	 */
+	public function Delete($ThankID) {
+		$ObjectToDelete = $this->GetByID($ThankID);
+		return $this->DeleteThank($ObjectToDelete);
+	}
+
+	/**
+	 * Deletes an entry from the Thanks Log, using the object key.
 	 *
 	 * @param string ObjectType The object type (Discussion, Comment, etc).
 	 * @param int ObjectID The object ID.
@@ -137,18 +169,35 @@ class ThanksLogModel extends \Aelia\Model {
 	 * is used to ensure that the correct thanks is deleted.
 	 * @return int|null
 	 */
-	public function Delete($ObjectType, $ObjectID, $SenderUserID) {
+	public function DeleteByObjectKey($ObjectType, $ObjectID, $SenderUserID) {
+		$ObjectToDelete = $this->GetByObjectKey($ObjectType, $ObjectID, $SenderUserID);
+		return $this->DeleteThank($ObjectToDelete);
+	}
+
+	/**
+	 * Deletes a Thank from the thanks log table and updates all object to which
+	 * the thank was related.
+	 *
+	 * @param object $ThanksObject An object representing a thanks.
+	 * @return int
+	 */
+	protected function DeleteThank($ThanksObject) {
+		if(empty($ThanksObject) ||
+			 !isset($ThanksObject->ThankID)) {
+			return null;
+		}
+
+		$Result = array();
 		$this->Database->BeginTransaction();
-
 		try {
-			$Result = $this->SQL->Delete('ThanksLog', array(
-				'ObjectType' => $ObjectType,
-				'ObjectID' => $ObjectID,
-				'InsertUserID' => $SenderUserID,
-			));
+			$DeleteResult = $this->SQL->Delete($this->Name, array('ThankID' => $ThanksObject->ThankID,));
+			$RowsAffected = $DeleteResult->PDOStatement()->rowCount();
 
-			if(($RowsAffected = $Result->PDOStatement()->rowCount()) > 0) {
-				$this->UserModel->UpdateReceivedThanksCount($UserID, $RowsAffected * -1);
+			if($RowsAffected > 0) {
+				// Update the amount of thanks received by the thanked user
+				$Result['UserThanksCount'] = $this->UpdateThankedObject('User', $ThanksObject->UserID, self::MINUS_ONE_THANK);
+				// Update the amount of thanks received by the object on which the "thanks" was placed
+				$Result['ObjectThanksCount'] = $this->UpdateThankedObject($ThanksObject->ObjectType,$ThanksObject->ObjectID, self::MINUS_ONE_THANK);
 			}
 		}
 		catch(Exception $e) {
@@ -174,34 +223,35 @@ class ThanksLogModel extends \Aelia\Model {
 		return $this->UserModel->UpdateReceivedThanksCount();
 	}
 
-	public function GetDiscussionComments($DiscussionID, $CommentData, $Where = Null) {
-		$Where['WithDiscussionID'] = $DiscussionID;
-		$Result = $this->GetComments($CommentData, $Where);
-		return $Result;
-	}
-
-	public function BaseQuery() {
+	protected function PrepareGetQuery() {
 		$this->SQL
-			->Select('t.CommentID, t.DiscussionID, t.DateInserted, t.InsertUserID as UserID, u.Name') // TODO: Select photo?
-			->Join('User u', 'u.UserID = t.InsertUserID', 'inner');
+			->Select('T.CommentID')
+			->Select('T.DiscussionID')
+			->Select('T.DateInserted')
+			->Select('T.InsertUserID as UserID')
+			->Select('U.Name')
+			->Join('User U', '(U.UserID = T.InsertUserID)');
 	}
 
-	public function GetThankfulPeople($Type, $ObjectID) {
-		$this->BaseQuery();
-		$Field = self::GetPrimaryKeyField($Type);
+	/**
+	 * Retrieves a list of all users who thanked for a specific object.
+	 *
+	 * @param string ObjectType The object type (Discussion, Comment, etc).
+	 * @param int ObjectID The object ID.
+	 * @return Gdn_DataSet|false
+	 */
+	public function GetThankfulPeople($ObjectType, $ObjectID) {
+		$Wheres = array(
+			'ObjectType' => $ObjectType,
+			'ObjectID' => $ObjectID,
+		);
+
 		$Result = $this->Get(array($Field => $ObjectID));
 		return $Result;
 	}
 
-	public function GetComments($CommentData, $Where = Null) {
-		$Where['Comments'] = $CommentData;
-		$this->BaseQuery();
-		$Result = $this->Get($Where);
-		return $Result;
-	}
-
 	public function GetReceivedThanks($Where = false, $Offset = false, $Limit = false) {
-		$this->BaseQuery();
+		$this->PrepareGetQuery();
 		$this->SQL
 			->OrderBy('t.DateInserted', 'desc');
 		$ReceivedThanks = $this->Get($Where, $Offset, $Limit);

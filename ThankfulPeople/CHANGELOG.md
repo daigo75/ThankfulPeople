@@ -1,5 +1,12 @@
 # Thankful People plugin for Vanilla Forums 2.x
 
+####1.2.5.140709
+* Refactored ThanksLogModel class:
+	* Fixed bugs in ThanksLogModel::Delete() method.
+	* Added methods to delete a log entry by ThankID or by object key (object type, object ID, sender).
+	* Cleaned up obsolete code.
+	* Refactored code to adhere to internal standards.
+
 ####1.2.4.140708
 * Improved permission checking on sending thanks:
 	* MessageThanksModule now always displays the thanks received by an object.
