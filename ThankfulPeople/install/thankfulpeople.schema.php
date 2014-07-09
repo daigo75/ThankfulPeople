@@ -20,7 +20,7 @@ class Schema extends \Aelia\Schema {
 			->Engine('InnoDB')
 			->Set(false, false);
 
-		$this->CreateIndex('ThanksLog', 'IX_Objects', array('ObjectType', 'ObjectID'));
+		$this->CreateIndex('ThanksLog', 'IX_Objects', array('ObjectType', 'ObjectID', 'InsertUserID'), 'UNIQUE');
 		$this->AddForeignKey('ThanksLog', 'FK_Thanks_Users', array('UserID'),
 												 'User', array('UserID'));
 	}
