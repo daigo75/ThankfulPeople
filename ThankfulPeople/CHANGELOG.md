@@ -1,5 +1,10 @@
 # Thankful People plugin for Vanilla Forums 2.x
 
+####1.2.6.140718
+* Fixed bugs in logic used to process thanks given to Discussions:
+	* Fixed bug in ThanksLogModel::GetObjectInsertUserID(). Ref. https://app.asana.com/0/8217127514025/14847004046288.
+	* Fixed bug in ThankfulPeoplePlugin::Controller_GiveThanks(). Ref. https://app.asana.com/0/8217127514025/14847004046290
+
 ####1.2.5.140709
 * Refactored ThanksLogModel class:
 	* Fixed bugs in ThanksLogModel::Delete() method.
