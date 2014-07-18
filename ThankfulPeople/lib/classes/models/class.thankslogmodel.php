@@ -128,6 +128,7 @@ class ThanksLogModel extends \Aelia\Model {
 		$SQL = clone $this->SQL;
 		switch(strtolower($ObjectType)) {
 			case 'discussion':
+			case 'question':
 				$SQL
 					->Select('InsertUserID')
 					->From('Discussion')
